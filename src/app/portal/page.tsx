@@ -151,7 +151,6 @@ export default function PortalLogin() {
                 <img src="/logo.png" alt="Club" className="h-full w-full object-contain rounded-full" onError={(e) => e.currentTarget.style.display = 'none'} />
             </div>
             <h1 className="text-2xl font-black text-gray-900 uppercase italic tracking-tighter leading-none">CLUB LA CANTERA</h1>
-            <p className="text-orange-600 font-black text-sm tracking-widest uppercase mt-1">HANDBALL</p>
         </div>
         {error && (
           <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center gap-3 rounded-r-lg text-sm font-bold animate-in fade-in">
