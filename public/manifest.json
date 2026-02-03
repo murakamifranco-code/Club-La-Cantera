@@ -1,0 +1,21 @@
+{
+  "name": "Club La Cantera",
+  "short_name": "La Cantera",
+  "description": "Sistema de Gestión - Club La Cantera",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ea580c",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
