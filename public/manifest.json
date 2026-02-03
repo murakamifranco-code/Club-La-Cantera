@@ -2,7 +2,7 @@
   "name": "Club La Cantera",
   "short_name": "La Cantera",
   "description": "Sistema de Gestión - Club La Cantera",
-  "start_url": "/",
+  "start_url": "/portal",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ea580c",
