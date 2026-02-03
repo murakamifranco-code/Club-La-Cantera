@@ -4,12 +4,11 @@ import { useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, AlertCircle, ShieldCheck, X, FileText, User, HeartPulse, ShieldAlert, MapPin, Phone, Calendar } from 'lucide-react'
+import { Loader2, AlertCircle, ShieldCheck, X, FileText, User, HeartPulse, ShieldAlert, MapPin, Phone, Calendar, Eye, EyeOff } from 'lucide-react'
 
 export default function Register() {
   const router = useRouter()
   
-  // ESTADO COMPLETO (Con la corrección de phone incluida)
   const [formData, setFormData] = useState({
       email: '', password: '', name: '', dni: '', phone: '',
       birth_date: '', address: '', gender: '',
@@ -18,8 +17,8 @@ export default function Register() {
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false) // Nuevo estado para el ojito
   
-  // ESTADOS LEGALES
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
 
@@ -35,7 +34,6 @@ export default function Register() {
     setLoading(true)
 
     try {
-      // 1. Crear usuario en Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -44,7 +42,6 @@ export default function Register() {
       if (authError) throw authError
 
       if (authData.user) {
-        // 2. Crear perfil COMPLETO en tabla 'users'
         const { error: profileError } = await supabase.from('users').insert({
           id: authData.user.id,
           email: formData.email,
@@ -55,7 +52,6 @@ export default function Register() {
           status: 'active',
           account_balance: 0,
           terms_accepted_at: new Date().toISOString(),
-          // GUARDAMOS TODOS LOS DATOS NUEVOS
           birth_date: formData.birth_date,
           address: formData.address,
           gender: formData.gender,
@@ -77,7 +73,6 @@ export default function Register() {
   }
 
   return (
-    // AQUÍ ESTÁ EL CAMBIO DE FONDO (Gradiente Azul a Naranja)
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-orange-500 p-4 font-sans py-12">
       
       <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-2xl animate-in zoom-in-95 duration-300">
@@ -99,7 +94,6 @@ export default function Register() {
 
         <form onSubmit={handleSubmit} className="space-y-8">
           
-          {/* SECCIÓN 1: DATOS DE CUENTA */}
           <div className="space-y-4">
               <h3 className="flex items-center gap-2 font-black text-gray-900 uppercase text-sm border-b pb-2 mb-4">
                   <ShieldCheck size={18} className="text-indigo-600"/> Datos de Cuenta
@@ -111,12 +105,27 @@ export default function Register() {
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contraseña</label>
-                    <input type="password" required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" placeholder="Mínimo 6 caracteres" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} />
+                    <div className="relative">
+                        <input 
+                            type={showPassword ? "text" : "password"} 
+                            required 
+                            className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900 pr-12" 
+                            placeholder="Mínimo 6 caracteres" 
+                            value={formData.password} 
+                            onChange={(e) => setFormData({...formData, password: e.target.value})} 
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600 transition-colors"
+                        >
+                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                    </div>
                 </div>
               </div>
           </div>
 
-          {/* SECCIÓN 2: DATOS PERSONALES */}
           <div className="space-y-4">
               <h3 className="flex items-center gap-2 font-black text-gray-900 uppercase text-sm border-b pb-2 mb-4 mt-8">
                   <User size={18} className="text-indigo-600"/> Información Personal
@@ -156,7 +165,6 @@ export default function Register() {
               </div>
           </div>
 
-          {/* SECCIÓN 3: EMERGENCIA Y SALUD */}
           <div className="space-y-4 bg-red-50 p-4 rounded-xl border border-red-100">
               <h3 className="flex items-center gap-2 font-black text-red-700 uppercase text-sm border-b border-red-200 pb-2 mb-4">
                   <ShieldAlert size={18} className="text-red-600"/> Emergencia y Salud
@@ -177,7 +185,6 @@ export default function Register() {
               </div>
           </div>
 
-          {/* CHECKBOX LEGAL */}
           <div className="flex items-start gap-3 bg-gray-100 p-4 rounded-xl border border-gray-200">
               <input id="terms" type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="w-6 h-6 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer mt-1" />
               <div className="text-sm">
@@ -199,7 +206,6 @@ export default function Register() {
         </div>
       </div>
 
-      {/* MODAL DE TÉRMINOS */}
       {showTermsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in">
             <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
