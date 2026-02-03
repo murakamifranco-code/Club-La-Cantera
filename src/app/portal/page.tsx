@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { 
   Loader2, User, Lock, LogIn, AlertCircle, LogOut, 
-  CreditCard, Shield, UserCircle, Eye, EyeOff // <-- Agregados Eye y EyeOff
+  CreditCard, Shield, UserCircle, Eye, EyeOff, Download // Agregado Download
 } from 'lucide-react'
 
 export default function PortalLogin() {
@@ -16,10 +16,14 @@ export default function PortalLogin() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false) // <-- Estado para el ojito
+  const [showPassword, setShowPassword] = useState(false)
   
   const [sessionUser, setSessionUser] = useState<any>(null)
   const [detectedRole, setDetectedRole] = useState<string | null>(null)
+
+  // --- NUEVA LÓGICA DE INSTALACIÓN ---
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -39,7 +43,28 @@ export default function PortalLogin() {
         }
     }
     checkSession()
+
+    // Escuchador para capturar el evento de instalación de Chrome
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, [])
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setShowInstallBtn(false);
+    }
+  };
+  // -----------------------------------
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -146,7 +171,18 @@ export default function PortalLogin() {
                 <img src="/logo.png" alt="Club" className="h-full w-full object-contain rounded-full" onError={(e) => e.currentTarget.style.display = 'none'} />
             </div>
             <h1 className="text-2xl font-black text-gray-900 uppercase italic tracking-tighter leading-none">CLUB LA CANTERA</h1>
+
+            {/* BANNER DE INSTALACIÓN DINÁMICO */}
+            {showInstallBtn && (
+              <button 
+                onClick={handleInstallClick}
+                className="mt-4 px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2 mx-auto hover:bg-orange-200 transition-all animate-bounce border border-orange-200"
+              >
+                <Download size={14} /> Instalar App del Club
+              </button>
+            )}
         </div>
+
         {error && (
           <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center gap-3 rounded-r-lg text-sm font-bold animate-in fade-in">
             <AlertCircle size={20} />
