@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, User, Lock, LogIn, AlertCircle, LogOut, CreditCard, ArrowRight, Shield, UserCircle, Copy } from 'lucide-react'
+import { 
+  Loader2, User, Lock, LogIn, AlertCircle, LogOut, 
+  CreditCard, Shield, UserCircle, Eye, EyeOff // <-- Agregados Eye y EyeOff
+} from 'lucide-react'
 
 export default function PortalLogin() {
   const router = useRouter()
@@ -13,6 +16,7 @@ export default function PortalLogin() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false) // <-- Estado para el ojito
   
   const [sessionUser, setSessionUser] = useState<any>(null)
   const [detectedRole, setDetectedRole] = useState<string | null>(null)
@@ -52,36 +56,29 @@ export default function PortalLogin() {
           emailToUse = userData.email
       }
 
-      // 1. Intento de Login normal
       const { data, error: loginError } = await supabase.auth.signInWithPassword({
         email: emailToUse,
         password: password,
       })
 
-      // 2. Lógica de Habilitación Automática (Si falla el login)
       if (loginError) {
-          // Buscamos si el socio existe en nuestra tabla 'users'
           const { data: socioDb } = await supabase
             .from('users')
             .select('*')
             .eq('email', emailToUse)
             .maybeSingle()
 
-          // Si el socio existe y la contraseña puesta coincide con su DNI
           if (socioDb && socioDb.dni === password) {
-              // Lo registramos formalmente en Auth ahora mismo
               const { data: newAuth, error: signUpError } = await supabase.auth.signUp({
                   email: emailToUse,
-                  password: socioDb.dni, // Su DNI es su clave
+                  password: socioDb.dni,
                   options: { data: { name: socioDb.name, role: 'player' } }
               })
 
               if (signUpError) throw new Error("Error al habilitar cuenta. Contacte al Admin.")
               
-              // Si el registro fue exitoso, vinculamos el ID
               if (newAuth.user) {
                   await supabase.from('users').update({ id: newAuth.user.id }).eq('email', emailToUse)
-                  // Reintentamos entrar inmediatamente
                   const { error: finalRetry } = await supabase.auth.signInWithPassword({
                     email: emailToUse,
                     password: socioDb.dni
@@ -89,8 +86,6 @@ export default function PortalLogin() {
                   if (!finalRetry) { window.location.reload(); return; }
               }
           }
-          
-          // Si nada de lo anterior funcionó, mostramos el error original
           throw loginError
       }
 
@@ -174,7 +169,21 @@ export default function PortalLogin() {
             <label className="block text-xs font-black text-gray-500 uppercase mb-1 ml-1">Contraseña</label>
             <div className="relative">
                 <Lock className="absolute left-4 top-3.5 text-gray-400" size={20}/>
-                <input type="password" required className="w-full pl-12 p-3.5 border-2 border-gray-200 rounded-xl outline-none focus:border-blue-600 focus:ring-0 font-bold text-gray-800 transition-all placeholder-gray-300" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  required 
+                  className="w-full pl-12 pr-12 p-3.5 border-2 border-gray-200 rounded-xl outline-none focus:border-blue-600 focus:ring-0 font-bold text-gray-800 transition-all placeholder-gray-300" 
+                  placeholder="••••••••" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-3.5 text-gray-400 hover:text-blue-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
             </div>
           </div>
           <button type="submit" disabled={loading} className="w-full py-4 bg-orange-600 text-white font-black rounded-xl hover:bg-orange-700 transition shadow-lg transform active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wide">
