@@ -13,9 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Club La Cantera", // Actualizado para la App
+  title: "Club La Cantera", 
   description: "Sistema de Gestión - Club La Cantera",
-  manifest: "/manifest.json", // Línea agregada para activar la PWA
+  manifest: "/manifest.json", 
+  // Única adición: Referencia técnica al icono para desplazar al de Vercel
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -26,10 +30,12 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
-        {/* Solo agregamos estos metadatos para el comportamiento de App en el celu */}
+        {/* Mantenemos tus metadatos exactos */}
         <meta name="theme-color" content="#ea580c" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        {/* Refuerzo para el favicon sin alterar el resto */}
+        <link rel="icon" href="/favicon.ico" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
