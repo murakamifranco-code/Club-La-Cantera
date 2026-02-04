@@ -36,6 +36,7 @@ export default function AdminPayments() {
             endDate = now.toISOString()
         }
 
+        // Agregamos category_snapshot a la consulta
         const { data, error } = await supabase
             .from('payments')
             .select('*, users!inner(name, email, dni, category, gender)')
@@ -87,15 +88,18 @@ export default function AdminPayments() {
       const user = Array.isArray(p.users) ? p.users[0] : p.users
       const name = user?.name?.toLowerCase() || ''
       const dni = user?.dni || ''
-      const category = user?.category || ''
       
-      // Lógica de género mejorada para detectar variaciones de la base de datos
+      // MEJORA: El filtro de categoría ahora prioriza la "Foto" (category_snapshot)
+      // Si no hay foto (pagos viejos), usa la categoría actual como respaldo.
+      const historicCategory = p.category_snapshot || user?.category || ''
+      
       const genderRaw = user?.gender ? String(user.gender).toLowerCase().trim() : ''
 
       const matchesSearch = name.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm)
-      const matchesCategory = categoryFilter === 'all' || category === categoryFilter
       
-      // CORRECCIÓN: Ahora detecta "femenino", "female" o "f" al filtrar por Femenino
+      // El filtro ahora se enlaza con la categoría histórica (la foto)
+      const matchesCategory = categoryFilter === 'all' || historicCategory === categoryFilter
+      
       const matchesGender = genderFilter === 'all' || 
         (genderFilter === 'Femenino' && (genderRaw === 'femenino' || genderRaw === 'female' || genderRaw === 'f')) ||
         (genderFilter === 'Masculino' && (genderRaw === 'masculino' || genderRaw === 'male' || genderRaw === 'm'))
@@ -225,7 +229,10 @@ export default function AdminPayments() {
                                       </td>
                                       <td className="p-4">
                                           <div className="flex gap-1 flex-wrap">
-                                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold border border-gray-200">{user?.category || '-'}</span>
+                                            {/* Mostramos la foto de la categoría si existe */}
+                                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold border border-gray-200">
+                                              {payment.category_snapshot || user?.category || '-'}
+                                            </span>
                                             {hasGender && (
                                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${isMale ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-pink-50 text-pink-600 border-pink-100'}`}>
                                                     {isMale ? 'M' : 'F'}
@@ -299,7 +306,10 @@ export default function AdminPayments() {
 
                 <div className="flex items-center justify-between bg-gray-50 rounded-lg p-2.5">
                   <div className="flex gap-1.5">
-                    <span className="px-2 py-0.5 bg-white text-gray-600 rounded text-[10px] font-bold border border-gray-200">{user?.category || '-'}</span>
+                    {/* Tarjeta móvil también usa la foto histórica */}
+                    <span className="px-2 py-0.5 bg-white text-gray-600 rounded text-[10px] font-bold border border-gray-200">
+                      {payment.category_snapshot || user?.category || '-'}
+                    </span>
                     <span className={`px-2 py-1 rounded text-[10px] font-bold border ${style.color}`}>
                       {style.text}
                     </span>
