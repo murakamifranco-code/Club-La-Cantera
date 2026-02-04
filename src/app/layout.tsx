@@ -16,9 +16,11 @@ export const metadata: Metadata = {
   title: "Club La Cantera", 
   description: "Sistema de Gestión - Club La Cantera",
   manifest: "/manifest.json", 
-  // Única adición: Referencia técnica al icono para desplazar al de Vercel
+  // Única adición: Forzamos la carga del logo usando la versión v=4
   icons: {
-    icon: "/favicon.ico",
+    icon: "/logo.png?v=4",
+    shortcut: "/logo.png?v=4",
+    apple: "/logo.png?v=4",
   },
 };
 
@@ -30,12 +32,12 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
-        {/* Mantenemos tus metadatos exactos */}
+        {/* Mantenemos tus metadatos exactos de estética y funcionalidad */}
         <meta name="theme-color" content="#ea580c" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        {/* Refuerzo para el favicon sin alterar el resto */}
-        <link rel="icon" href="/favicon.ico" />
+        {/* Refuerzo manual con versión para asegurar que el triángulo desaparezca */}
+        <link rel="icon" href="/logo.png?v=4" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
