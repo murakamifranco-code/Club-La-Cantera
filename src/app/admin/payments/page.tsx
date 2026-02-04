@@ -88,13 +88,17 @@ export default function AdminPayments() {
       const name = user?.name?.toLowerCase() || ''
       const dni = user?.dni || ''
       const category = user?.category || ''
-      const gender = user?.gender || ''
+      
+      // Lógica de género mejorada para detectar variaciones de la base de datos
+      const genderRaw = user?.gender ? String(user.gender).toLowerCase().trim() : ''
 
       const matchesSearch = name.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm)
       const matchesCategory = categoryFilter === 'all' || category === categoryFilter
       
+      // CORRECCIÓN: Ahora detecta "femenino", "female" o "f" al filtrar por Femenino
       const matchesGender = genderFilter === 'all' || 
-        (gender && gender.toLowerCase().trim() === genderFilter.toLowerCase().trim())
+        (genderFilter === 'Femenino' && (genderRaw === 'femenino' || genderRaw === 'female' || genderRaw === 'f')) ||
+        (genderFilter === 'Masculino' && (genderRaw === 'masculino' || genderRaw === 'male' || genderRaw === 'm'))
 
       return matchesSearch && matchesCategory && matchesGender
   })
@@ -106,7 +110,7 @@ export default function AdminPayments() {
   return (
     <div className="space-y-6 min-h-screen pb-10 font-sans">
       
-      {/* HEADER - Ajustado a la izquierda en móvil con items-start */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div className="text-left w-full md:w-auto">
             <h1 className="text-2xl font-bold text-gray-900">Historial de Pagos</h1>
