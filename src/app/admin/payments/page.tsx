@@ -179,8 +179,8 @@ export default function AdminPayments() {
           </div>
       </div>
 
-      {/* TABLA */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* TABLA PARA ESCRITORIO (hidden md:block) */}
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                   <thead>
@@ -202,12 +202,9 @@ export default function AdminPayments() {
                           filteredPayments.map((payment) => {
                               const user = Array.isArray(payment.users) ? payment.users[0] : payment.users
                               const style = getMethodLabel(payment.method)
-                              
-                              // PRIORIDAD DE COLOR: Si es ajuste siempre azul, sino verde (+) o azul (-)
                               const isAdjustment = payment.method === 'adjustment'
                               const isPositive = payment.amount > 0
                               const amountColor = isAdjustment ? 'text-blue-600' : (isPositive ? 'text-green-600' : 'text-blue-600')
-
                               const showEye = payment.method?.includes('transfer') && payment.proof_url
                               const rawGender = user?.gender ? String(user.gender).toUpperCase().trim() : ''
                               const isMale = rawGender.startsWith('M')
@@ -267,7 +264,66 @@ export default function AdminPayments() {
           </div>
       </div>
 
-      {/* MODAL COMPROBANTE */}
+      {/* VISTA PARA CELULARES (md:hidden) */}
+      <div className="md:hidden space-y-4">
+        {loading ? (
+          <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600"/></div>
+        ) : filteredPayments.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 text-sm bg-white rounded-xl border border-gray-200">No se encontraron pagos.</div>
+        ) : (
+          filteredPayments.map((payment) => {
+            const user = Array.isArray(payment.users) ? payment.users[0] : payment.users
+            const style = getMethodLabel(payment.method)
+            const isAdjustment = payment.method === 'adjustment'
+            const isPositive = payment.amount > 0
+            const amountColor = isAdjustment ? 'text-blue-600' : (isPositive ? 'text-green-600' : 'text-blue-600')
+            const showEye = payment.method?.includes('transfer') && payment.proof_url
+
+            return (
+              <div key={payment.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                      {format(parseISO(payment.date), 'dd/MM/yyyy')}
+                    </p>
+                    <h3 className="font-bold text-gray-900 text-sm leading-tight mt-0.5">{user?.name || 'Usuario Eliminado'}</h3>
+                  </div>
+                  <div className={`text-right font-black text-base ${amountColor}`}>
+                    {isPositive ? '+' : ''}${payment.amount.toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-gray-50 rounded-lg p-2.5">
+                  <div className="flex gap-1.5">
+                    <span className="px-2 py-0.5 bg-white text-gray-600 rounded text-[10px] font-bold border border-gray-200">{user?.category || '-'}</span>
+                    <span className={`px-2 py-1 rounded text-[10px] font-bold border ${style.color}`}>
+                      {style.text}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    {showEye && (
+                      <button 
+                        onClick={() => setPreviewUrl(payment.proof_url)}
+                        className="text-indigo-600 bg-white border border-indigo-100 p-1.5 rounded-lg shadow-sm"
+                      >
+                        <Eye size={16}/>
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => handleDelete(payment.id, payment.amount, payment.user_id)}
+                      className="text-gray-400 bg-white border border-gray-100 p-1.5 rounded-lg shadow-sm active:text-red-600"
+                    >
+                      <Trash2 size={16}/>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* MODAL COMPROBANTE (IGUAL) */}
       {previewUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setPreviewUrl(null)}>
             <div className="bg-white rounded-2xl overflow-hidden max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
