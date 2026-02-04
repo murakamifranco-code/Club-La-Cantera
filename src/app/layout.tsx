@@ -16,7 +16,12 @@ export const metadata: Metadata = {
   title: "Club La Cantera", 
   description: "Sistema de Gestión - Club La Cantera",
   manifest: "/manifest.json", 
-  // Se eliminó la propiedad icons para que el sistema use el archivo icon.png automáticamente
+  // Agregamos la referencia con versión v=20 para limpiar la caché del navegador
+  icons: {
+    icon: "/logo.png?v=20",
+    shortcut: "/logo.png?v=20",
+    apple: "/logo.png?v=20",
+  },
 };
 
 export default function RootLayout({
@@ -31,7 +36,8 @@ export default function RootLayout({
         <meta name="theme-color" content="#ea580c" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        {/* Se eliminó el link manual para evitar el recuadro blanco y la caché vieja */}
+        {/* Refuerzo técnico: especificamos el tipo PNG para que respete la transparencia */}
+        <link rel="icon" href="/logo.png?v=20" type="image/png" sizes="any" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
