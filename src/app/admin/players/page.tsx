@@ -105,7 +105,6 @@ export default function PlayersPage() {
               })
           }
           else {
-              // LÓGICA DE CAJA RÁPIDA: Si no tiene proof_url y es un pago, es Efectivo
               const isCash = !p.proof_url || p.payment_method === 'cash' || p.payment_method === 'efectivo';
               
               transactions.push({
@@ -190,7 +189,8 @@ export default function PlayersPage() {
       </div>
       <div className="relative"><div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Search className="h-5 w-5 text-gray-400" /></div><input type="text" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 sm:text-sm" placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
 
-      <div className="overflow-hidden rounded-lg bg-white shadow border border-gray-200 overflow-x-auto">
+      {/* VISTA PARA ESCRITORIO (Se oculta en celulares) */}
+      <div className="hidden md:block overflow-hidden rounded-lg bg-white shadow border border-gray-200">
         {loading ? ( <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div> ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -217,7 +217,64 @@ export default function PlayersPage() {
         )}
       </div>
 
-      {/* MODAL ESTADO DE CUENTA */}
+      {/* VISTA PARA CELULARES (Se oculta en escritorio) */}
+      <div className="md:hidden space-y-4">
+        {loading ? (
+          <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div>
+        ) : (
+          filteredPlayers.map((player) => (
+            <div key={player.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full flex items-center justify-center font-bold text-white uppercase bg-indigo-500 text-lg shadow-sm">
+                    {player.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-900 leading-tight">{player.name}</h3>
+                    <p className="text-[11px] text-gray-500 font-medium uppercase tracking-tighter">{player.dni || 'SIN DNI'}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => handleStatusClick(player)} 
+                  className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm border ${player.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}
+                >
+                  {player.status === 'active' ? 'Activo' : 'Inactivo'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 bg-gray-50 rounded-lg p-3">
+                <div className="space-y-0.5">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Categoría</p>
+                  <p className="text-xs font-bold text-gray-700">{getCategory(player.birth_date)}</p>
+                </div>
+                <div className="space-y-0.5 text-right">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Saldo</p>
+                  <p className={`text-xs font-black ${player.account_balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {player.account_balance < 0 ? '-' : '+'}${Math.abs(player.account_balance).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button 
+                  onClick={() => openStatement(player)} 
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition"
+                >
+                  <DollarSign size={14} /> Cuenta
+                </button>
+                <button 
+                  onClick={() => openModal(player)} 
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition"
+                >
+                  <Edit2 size={14} /> Editar
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* MODAL ESTADO DE CUENTA IGUAL */}
       {isStatementOpen && selectedPlayerForStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
