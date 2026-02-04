@@ -46,26 +46,20 @@ export default function AdminDashboard() {
     }
 
     // --- 1. DATOS DEL PERIODO (FILTRADOS POR FECHA) ---
-    // Traemos movimientos dentro del rango seleccionado
     const { data: movements } = await supabase.from('payments')
       .select('amount, method')
       .gte('date', startDate)
       .lte('date', endDate)
 
-    // A) Recaudación Real (Plata que entró en este periodo)
     const revenue = movements?.filter(m => m.amount > 0 && m.method !== 'adjustment').reduce((acc, curr) => acc + curr.amount, 0) || 0;
-
-    // B) Facturación Ideal (Cuotas generadas en este periodo)
     const billing = movements?.filter(m => m.amount < 0).reduce((acc, curr) => acc + Math.abs(curr.amount), 0) || 0;
 
     // --- 2. DATOS DE MOROSIDAD (SNAPSHOT ACTUAL) ---
-    // Acá está la corrección: No miramos fechas, miramos SALDOS REALES.
-    // Sumamos individualmente los saldos negativos. Así el superávit de uno NO tapa al otro.
     const { data: debtors } = await supabase
         .from('users')
         .select('account_balance')
         .eq('role', 'player')
-        .lt('account_balance', 0) // Solo traemos a los que deben
+        .lt('account_balance', 0)
     
     const totalRealDebt = debtors?.reduce((acc, curr) => acc + Math.abs(curr.account_balance), 0) || 0
 
@@ -81,7 +75,7 @@ export default function AdminDashboard() {
     setStats({ 
         revenue, 
         activePlayers: activeCount || 0, 
-        debt: totalRealDebt, // Deuda Real en la calle (Suma de negativos)
+        debt: totalRealDebt, 
         billing,             
         newPlayers: newCount || 0
     })
@@ -118,9 +112,9 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6 font-sans">
       
-      {/* HEADER + FILTRO */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4">
-        <div>
+      {/* HEADER + FILTRO - Ajustado a la izquierda en móvil */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div className="text-left">
             <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
             <p className="text-gray-500 text-sm">Resumen de movimientos: <span className="font-semibold text-indigo-600">{periodLabel}</span></p>
         </div>
@@ -136,8 +130,6 @@ export default function AdminDashboard() {
 
       {/* TARJETAS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          {/* 1. Recaudación */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-start">
                   <div>
@@ -149,7 +141,6 @@ export default function AdminDashboard() {
               <p className="text-xs text-green-600 mt-4 font-medium flex items-center gap-1">Cobrado en este periodo</p>
           </div>
 
-          {/* 2. Facturación Ideal */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-start">
                   <div>
@@ -161,7 +152,6 @@ export default function AdminDashboard() {
               <p className="text-xs text-indigo-600 mt-4 font-medium">Cuotas generadas en periodo</p>
           </div>
 
-          {/* 3. Morosidad (REAL - INDIVIDUAL) */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-start">
                   <div>
@@ -175,7 +165,6 @@ export default function AdminDashboard() {
               <p className="text-xs text-gray-400 mt-4 font-medium">Suma de deudas actuales</p>
           </div>
 
-          {/* 4. Activos */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-start">
                   <div><p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Activos Totales</p><h3 className="text-2xl font-bold text-gray-800 mt-1">{stats.activePlayers}</h3></div>
@@ -186,7 +175,6 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* LISTAS DE PAGOS Y CAJA RÁPIDA (Sin cambios en lógica) */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 h-full">
               <h3 className="font-bold text-gray-700 mb-4 text-base">Últimos Movimientos</h3>
               <div className="space-y-3">
