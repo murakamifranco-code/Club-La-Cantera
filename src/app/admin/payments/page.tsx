@@ -106,9 +106,9 @@ export default function AdminPayments() {
   return (
     <div className="space-y-6 min-h-screen pb-10 font-sans">
       
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4">
-        <div>
+      {/* HEADER - Ajustado a la izquierda en móvil con items-start */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div className="text-left w-full md:w-auto">
             <h1 className="text-2xl font-bold text-gray-900">Historial de Pagos</h1>
             <p className="text-gray-500 text-sm mt-1">
                 Total recaudado: <span className="text-green-600 font-bold">${totalRevenue.toLocaleString()}</span>
@@ -179,7 +179,7 @@ export default function AdminPayments() {
           </div>
       </div>
 
-      {/* TABLA PARA ESCRITORIO (hidden md:block) */}
+      {/* TABLA PARA ESCRITORIO */}
       <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -264,7 +264,7 @@ export default function AdminPayments() {
           </div>
       </div>
 
-      {/* VISTA PARA CELULARES (md:hidden) */}
+      {/* VISTA PARA CELULARES */}
       <div className="md:hidden space-y-4">
         {loading ? (
           <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600"/></div>
@@ -282,7 +282,7 @@ export default function AdminPayments() {
             return (
               <div key={payment.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
                 <div className="flex justify-between items-start">
-                  <div>
+                  <div className="text-left">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                       {format(parseISO(payment.date), 'dd/MM/yyyy')}
                     </p>
@@ -323,7 +323,7 @@ export default function AdminPayments() {
         )}
       </div>
 
-      {/* MODAL COMPROBANTE (IGUAL) */}
+      {/* MODAL COMPROBANTE */}
       {previewUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setPreviewUrl(null)}>
             <div className="bg-white rounded-2xl overflow-hidden max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
