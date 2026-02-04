@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "Club La Cantera", 
   description: "Sistema de Gestión - Club La Cantera",
   manifest: "/manifest.json", 
-  // Eliminamos la propiedad icons para que Next.js use el archivo icon.png de la carpeta app
+  // Se eliminó la propiedad icons para que el sistema use el archivo icon.png automáticamente
 };
 
 export default function RootLayout({
@@ -31,7 +31,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#ea580c" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        {/* Eliminamos el link manual del favicon para evitar conflictos de caché */}
+        {/* Se eliminó el link manual para evitar el recuadro blanco y la caché vieja */}
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
