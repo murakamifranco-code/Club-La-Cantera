@@ -16,17 +16,7 @@ export const metadata: Metadata = {
   title: "Club La Cantera", 
   description: "Sistema de Gestión - Club La Cantera",
   manifest: "/manifest.json", 
-  icons: {
-    // Saltamos a la versión 10 para romper cualquier rastro de la caché vieja
-    icon: [
-      {
-        url: "/logo.png?v=10",
-        type: "image/png",
-      },
-    ],
-    shortcut: "/logo.png?v=10",
-    apple: "/logo.png?v=10",
-  },
+  // Eliminamos la propiedad icons para que Next.js use el archivo icon.png de la carpeta app
 };
 
 export default function RootLayout({
@@ -37,11 +27,11 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
+        {/* Mantenemos tus metadatos exactos de estética y funcionalidad móvil */}
         <meta name="theme-color" content="#ea580c" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        {/* Este enlace manual con type e icon es lo que obliga a Chrome a usar la transparencia */}
-        <link rel="icon" href="/logo.png?v=10" type="image/png" sizes="any" />
+        {/* Eliminamos el link manual del favicon para evitar conflictos de caché */}
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
