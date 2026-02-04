@@ -86,7 +86,8 @@ export default function AdminDashboard() {
   const handleSearch = async (term: string) => {
       setSearchTerm(term)
       if (term.length < 3) { setSearchResults([]); return }
-      const { data } = await supabase.from('users').select('id, name, dni, account_balance').eq('role', 'player').or(`name.ilike.%${term}%,dni.ilike.%${term}%`).limit(5)
+      // CORRECCIÓN: Agregamos 'category' al select para tener el dato al seleccionar el usuario
+      const { data } = await supabase.from('users').select('id, name, dni, account_balance, category').eq('role', 'player').or(`name.ilike.%${term}%,dni.ilike.%${term}%`).limit(5)
       setSearchResults(data || [])
   }
 
@@ -98,7 +99,15 @@ export default function AdminDashboard() {
       setProcessing(true)
       try {
           const amount = parseFloat(quickPayAmount)
-          const { error } = await supabase.from('payments').insert({ user_id: quickPayUser.id, amount: amount, method: 'cash', date: new Date().toISOString(), status: 'completed' })
+          // CORRECCIÓN: Se incluye category_snapshot capturando la categoría actual del socio
+          const { error } = await supabase.from('payments').insert({ 
+            user_id: quickPayUser.id, 
+            amount: amount, 
+            method: 'cash', 
+            date: new Date().toISOString(), 
+            status: 'completed',
+            category_snapshot: quickPayUser.category 
+          })
           if (error) throw error
           showToast(`Pago de $${amount} registrado para ${quickPayUser.name}`, 'success')
           setQuickPayUser(null); setQuickPayAmount(''); fetchDashboardData() 
