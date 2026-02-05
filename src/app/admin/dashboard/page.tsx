@@ -45,7 +45,6 @@ export default function AdminDashboard() {
         startDate = startOfYear(now).toISOString()
     }
 
-    // --- 1. DATOS DEL PERIODO (FILTRADOS POR FECHA) ---
     const { data: movements } = await supabase.from('payments')
       .select('amount, method')
       .gte('date', startDate)
@@ -54,7 +53,6 @@ export default function AdminDashboard() {
     const revenue = movements?.filter(m => m.amount > 0 && m.method !== 'adjustment').reduce((acc, curr) => acc + curr.amount, 0) || 0;
     const billing = movements?.filter(m => m.amount < 0).reduce((acc, curr) => acc + Math.abs(curr.amount), 0) || 0;
 
-    // --- 2. DATOS DE MOROSIDAD (SNAPSHOT ACTUAL) ---
     const { data: debtors } = await supabase
         .from('users')
         .select('account_balance')
@@ -63,7 +61,6 @@ export default function AdminDashboard() {
     
     const totalRealDebt = debtors?.reduce((acc, curr) => acc + Math.abs(curr.account_balance), 0) || 0
 
-    // --- 3. OTROS DATOS ---
     const { count: activeCount } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'player').eq('status', 'active')
     const { count: newCount } = await supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'player').gte('created_at', startDate).lte('created_at', endDate)
 
@@ -86,8 +83,8 @@ export default function AdminDashboard() {
   const handleSearch = async (term: string) => {
       setSearchTerm(term)
       if (term.length < 3) { setSearchResults([]); return }
-      // ARREGLO: Agregamos 'category' al select para capturar el dato exacto del socio
-      const { data } = await supabase.from('users').select('id, name, dni, account_balance, category').eq('role', 'player').or(`name.ilike.%${term}%,dni.ilike.%${term}%`).limit(5)
+      // MODIFICADO: Seleccionamos birth_date para el cálculo automático
+      const { data } = await supabase.from('users').select('id, name, dni, account_balance, category, birth_date').eq('role', 'player').or(`name.ilike.%${term}%,dni.ilike.%${term}%`).limit(5)
       setSearchResults(data || [])
   }
 
@@ -99,15 +96,27 @@ export default function AdminDashboard() {
       setProcessing(true)
       try {
           const amount = parseFloat(quickPayAmount)
-          // ARREGLO: Se inyecta la categoría del usuario en category_snapshot para el historial
+
+          // ARREGLO: Cálculo automático de categoría por año de nacimiento
+          const birthYear = quickPayUser.birth_date ? parseISO(quickPayUser.birth_date).getFullYear() : 0
+          const currentYear = new Date().getFullYear()
+          const age = currentYear - birthYear
+          
+          let automaticCategory = 'Mayores'
+          if (age < 13) automaticCategory = 'Infantiles'
+          else if (age <= 14) automaticCategory = 'Menores'
+          else if (age <= 16) automaticCategory = 'Cadetes'
+          else if (age <= 18) automaticCategory = 'Juveniles'
+
           const { error } = await supabase.from('payments').insert({ 
             user_id: quickPayUser.id, 
             amount: amount, 
             method: 'cash', 
             date: new Date().toISOString(), 
             status: 'completed',
-            category_snapshot: quickPayUser.category 
+            category_snapshot: automaticCategory 
           })
+
           if (error) throw error
           showToast(`Pago de $${amount} registrado para ${quickPayUser.name}`, 'success')
           setQuickPayUser(null); setQuickPayAmount(''); fetchDashboardData() 
@@ -228,7 +237,7 @@ export default function AdminDashboard() {
                       </div>
                   )}
                   <form onSubmit={handleQuickPay}>
-                      <label className="text-xs font-bold text-gray-500 uppercase ml-1">Monto Recivio</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase ml-1">Monto Recibido</label>
                       <div className="relative mt-1"><span className="absolute left-3 top-3 text-gray-500 font-bold text-lg">$</span><input type="number" required min="1" disabled={!quickPayUser} className="w-full pl-8 p-3 border border-gray-300 rounded-lg outline-none focus:border-green-500 transition font-bold text-xl text-gray-800 placeholder-gray-300 disabled:bg-gray-50" placeholder="0" value={quickPayAmount} onChange={(e) => setQuickPayAmount(e.target.value)}/></div>
                       <button disabled={!quickPayUser || !quickPayAmount || processing} className="w-full mt-4 py-3 bg-gray-900 text-white font-bold rounded-lg hover:bg-black disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition shadow-md uppercase tracking-wide text-sm">{processing ? <Loader2 className="animate-spin mx-auto"/> : 'Ingresar Dinero'}</button>
                   </form>
