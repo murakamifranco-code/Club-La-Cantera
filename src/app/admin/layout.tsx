@@ -23,7 +23,7 @@ export default function AdminLayout({
   }
 
   const menuItems = [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+    { name: 'Panel de Control', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: 'Socios', href: '/admin/players', icon: Users },
     { name: 'Pagos', href: '/admin/payments', icon: CreditCard },
     { name: 'Cuotas', href: '/admin/fees', icon: FileText },
