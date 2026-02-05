@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { 
   Loader2, User, Lock, LogIn, AlertCircle, LogOut, 
-  CreditCard, Shield, UserCircle, Eye, EyeOff, Download // Agregado Download
+  CreditCard, Shield, UserCircle, Eye, EyeOff, Download, Share // Agregado Share
 } from 'lucide-react'
 
 export default function PortalLogin() {
@@ -21,9 +21,10 @@ export default function PortalLogin() {
   const [sessionUser, setSessionUser] = useState<any>(null)
   const [detectedRole, setDetectedRole] = useState<string | null>(null)
 
-  // --- NUEVA LÓGICA DE INSTALACIÓN ---
+  // --- LÓGICA DE INSTALACIÓN (ANDROID + IOS) ---
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
+  const [isIOS, setIsIOS] = useState(false); // Nuevo estado para iPhone
 
   useEffect(() => {
     const checkSession = async () => {
@@ -44,7 +45,12 @@ export default function PortalLogin() {
     }
     checkSession()
 
-    // Escuchador para capturar el evento de instalación de Chrome
+    // DETECTAR SI ES IPHONE/IPAD
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isApple = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(isApple);
+
+    // Escuchador para capturar el evento de instalación (Chrome/Android)
     const handler = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -133,14 +139,14 @@ export default function PortalLogin() {
 
   if (sessionUser) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-orange-500 p-4 font-sans">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-orange-500 p-4 font-sans text-left">
             <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md relative overflow-hidden text-center animate-in zoom-in-95">
                 <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 to-blue-600"></div>
                 <div className="h-16 w-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white shadow-sm">
                     <User size={32} />
                 </div>
-                <h2 className="text-xl font-black text-gray-900 uppercase">Hola, {sessionUser.email?.split('@')[0]}</h2>
-                <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-4 ${detectedRole === 'admin' ? 'bg-indigo-100 text-indigo-700' : (detectedRole ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600')}`}>
+                <h2 className="text-xl font-black text-gray-900 uppercase leading-none">Hola, {sessionUser.email?.split('@')[0]}</h2>
+                <div className={`mt-2 inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide mb-4 ${detectedRole === 'admin' ? 'bg-indigo-100 text-indigo-700' : (detectedRole ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600')}`}>
                     Rol: {detectedRole === 'admin' ? 'Administrador' : (detectedRole === 'player' ? 'Jugador' : 'Sin Asignar')}
                 </div>
                 <div className="grid grid-cols-1 gap-3">
@@ -163,7 +169,7 @@ export default function PortalLogin() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-orange-500 p-4 font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-orange-500 p-4 font-sans text-left">
       <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-300 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 to-blue-600"></div>
         <div className="text-center mb-8 mt-2">
@@ -172,8 +178,8 @@ export default function PortalLogin() {
             </div>
             <h1 className="text-2xl font-black text-gray-900 uppercase italic tracking-tighter leading-none">CLUB LA CANTERA</h1>
 
-            {/* BANNER DE INSTALACIÓN DINÁMICO */}
-            {showInstallBtn && (
+            {/* BOTÓN ANDROID / PC */}
+            {showInstallBtn && !isIOS && (
               <button 
                 onClick={handleInstallClick}
                 className="mt-4 px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-xs font-black uppercase tracking-widest flex items-center gap-2 mx-auto hover:bg-orange-200 transition-all animate-bounce border border-orange-200"
@@ -181,10 +187,19 @@ export default function PortalLogin() {
                 <Download size={14} /> Instalar App del Club
               </button>
             )}
+
+            {/* CARTEL AYUDA IPHONE */}
+            {isIOS && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-2xl animate-in fade-in zoom-in duration-500">
+                <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter leading-tight flex items-center justify-center gap-2">
+                   <Share size={14} className="shrink-0" /> Instalá la App: Tocá compartir y "Agregar al inicio"
+                </p>
+              </div>
+            )}
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center gap-3 rounded-r-lg text-sm font-bold animate-in fade-in">
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center gap-3 rounded-r-lg text-sm font-bold animate-in fade-in text-left">
             <AlertCircle size={20} />
             <span>{error}</span>
           </div>
@@ -226,9 +241,11 @@ export default function PortalLogin() {
             {loading ? <Loader2 className="animate-spin" /> : <>INGRESAR <LogIn size={20}/></>}
           </button>
         </form>
-        <div className="mt-8 text-center pt-6 border-t border-gray-100">
-            <p className="text-gray-400 text-sm font-medium mb-2">¿Sos nuevo en el club?</p>
-            <Link href="/portal/register" className="text-blue-600 font-black hover:text-blue-800 hover:underline uppercase text-sm">Crear mi cuenta de socio</Link>
+        <div className="mt-8 text-center pt-6 border-t border-gray-100 text-left">
+            <p className="text-gray-400 text-sm font-medium mb-2 text-center">¿Sos nuevo en el club?</p>
+            <div className="text-center">
+              <Link href="/portal/register" className="text-blue-600 font-black hover:text-blue-800 hover:underline uppercase text-sm">Crear mi cuenta de socio</Link>
+            </div>
         </div>
       </div>
     </div>
