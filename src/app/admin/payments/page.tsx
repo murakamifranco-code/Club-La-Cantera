@@ -160,10 +160,10 @@ export default function AdminPayments() {
                         className="bg-transparent text-xs font-bold text-gray-600 outline-none cursor-pointer"
                       >
                           <option value="all">Categorías</option>
-                          <option value="Infantiles">Infantiles</option>
-                          <option value="Menores">Menores</option>
-                          <option value="Cadetes">Cadetes</option>
-                          <option value="Juveniles">Juveniles</option>
+                          <option value="Infantil">Infantiles</option>
+                          <option value="Menor">Menores</option>
+                          <option value="Cadete">Cadetes</option>
+                          <option value="Juvenil">Juveniles</option>
                           <option value="Mayores">Mayores</option>
                       </select>
                   </div>
