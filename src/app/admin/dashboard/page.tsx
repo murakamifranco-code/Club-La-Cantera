@@ -86,7 +86,7 @@ export default function AdminDashboard() {
   const handleSearch = async (term: string) => {
       setSearchTerm(term)
       if (term.length < 3) { setSearchResults([]); return }
-      // CORRECCIÓN: Agregamos 'category' al select para tener el dato al seleccionar el usuario
+      // ARREGLO: Agregamos 'category' al select para capturar el dato exacto del socio
       const { data } = await supabase.from('users').select('id, name, dni, account_balance, category').eq('role', 'player').or(`name.ilike.%${term}%,dni.ilike.%${term}%`).limit(5)
       setSearchResults(data || [])
   }
@@ -99,7 +99,7 @@ export default function AdminDashboard() {
       setProcessing(true)
       try {
           const amount = parseFloat(quickPayAmount)
-          // CORRECCIÓN: Se incluye category_snapshot capturando la categoría actual del socio
+          // ARREGLO: Se inyecta la categoría del usuario en category_snapshot para el historial
           const { error } = await supabase.from('payments').insert({ 
             user_id: quickPayUser.id, 
             amount: amount, 
@@ -121,7 +121,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6 font-sans">
       
-      {/* HEADER + FILTRO - Ajustado a la izquierda en móvil */}
+      {/* HEADER + FILTRO */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div className="text-left">
             <h1 className="text-2xl font-bold text-gray-800">Panel de Control</h1>
@@ -228,7 +228,7 @@ export default function AdminDashboard() {
                       </div>
                   )}
                   <form onSubmit={handleQuickPay}>
-                      <label className="text-xs font-bold text-gray-500 uppercase ml-1">Monto Recibido</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase ml-1">Monto Recivio</label>
                       <div className="relative mt-1"><span className="absolute left-3 top-3 text-gray-500 font-bold text-lg">$</span><input type="number" required min="1" disabled={!quickPayUser} className="w-full pl-8 p-3 border border-gray-300 rounded-lg outline-none focus:border-green-500 transition font-bold text-xl text-gray-800 placeholder-gray-300 disabled:bg-gray-50" placeholder="0" value={quickPayAmount} onChange={(e) => setQuickPayAmount(e.target.value)}/></div>
                       <button disabled={!quickPayUser || !quickPayAmount || processing} className="w-full mt-4 py-3 bg-gray-900 text-white font-bold rounded-lg hover:bg-black disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition shadow-md uppercase tracking-wide text-sm">{processing ? <Loader2 className="animate-spin mx-auto"/> : 'Ingresar Dinero'}</button>
                   </form>
