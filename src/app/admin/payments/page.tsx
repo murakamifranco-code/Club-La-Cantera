@@ -110,22 +110,30 @@ export default function AdminPayments() {
       return matchesSearch && matchesCategory && matchesGender
   })
 
+  // EXPORTACIÓN DEFINITIVA: Formato CSV con punto y coma (Estándar de Excel en Español)
   const exportToExcel = () => {
-      const headers = ['Fecha', 'Jugador', 'DNI', 'Detalle', 'Metodo', 'Monto'].join('\t');
+      // Cabecera con punto y coma
+      const headers = ['Fecha', 'Jugador', 'DNI', 'Detalle', 'Metodo', 'Monto'].join(';');
+      
       const rows = filteredPayments.map(p => {
           const user = Array.isArray(p.users) ? p.users[0] : p.users;
           const date = format(parseISO(p.date), 'dd/MM/yyyy');
           const method = getMethodLabel(p.method).text;
           const category = p.category_snapshot || user?.category || '-';
-          return [date, user?.name || '', user?.dni || '', category, method, p.amount].join('\t');
+          const name = user?.name || '';
+          const dni = user?.dni || '';
+          // Limpiamos posibles comas en los nombres para no romper las columnas
+          return [date, name.replace(/;/g, ''), dni, category, method, p.amount].join(';');
       }).join('\n');
 
       const content = headers + '\n' + rows;
-      const blob = new Blob(['\ufeff' + content], { type: 'application/vnd.ms-excel;charset=utf-8' });
+      // El BOM (\ufeff) ayuda a que Excel detecte los acentos correctamente
+      const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `Planilla_Pagos_${format(new Date(), 'dd-MM-yyyy')}.xls`;
+      // Usamos extensión .csv para evitar alertas de seguridad de Excel
+      link.download = `Planilla_Pagos_${format(new Date(), 'dd-MM-yyyy')}.csv`;
       link.click();
       URL.revokeObjectURL(url);
   };
