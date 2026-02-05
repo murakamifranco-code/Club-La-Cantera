@@ -125,11 +125,11 @@ export default function PlayersPage() {
     if (!birthDateString) return '-'
     const birthYear = parseISO(birthDateString).getFullYear()
     const age = new Date().getFullYear() - birthYear 
-    if (age < 13) return `Infantil`
-    if (age <= 14) return `Menor`
-    if (age <= 16) return `Cadete`
-    if (age <= 18) return `Juvenil`
-    return `Mayor`
+    if (age < 13) return `Infantiles`
+    if (age <= 14) return `Menores`
+    if (age <= 16) return `Cadetes`
+    if (age <= 18) return `Juveniles`
+    return `Mayores`
   }
 
   const openModal = (player?: Player) => {
