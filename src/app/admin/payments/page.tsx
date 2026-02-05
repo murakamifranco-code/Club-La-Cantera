@@ -69,17 +69,13 @@ export default function AdminPayments() {
       if (!deleteModal) return
       setIsDeleting(true)
       const { id, amount, userId } = deleteModal
-
       try {
           const { error: deleteError } = await supabase.from('payments').delete().eq('id', id)
           if (deleteError) throw deleteError
-
           const adjustment = -amount 
           const { data: user } = await supabase.from('users').select('account_balance').eq('id', userId).single()
           if (user) {
-              await supabase.from('users').update({
-                  account_balance: user.account_balance + adjustment
-              }).eq('id', userId)
+              await supabase.from('users').update({ account_balance: user.account_balance + adjustment }).eq('id', userId)
           }
           setDeleteModal(null)
           fetchPayments()
@@ -114,25 +110,24 @@ export default function AdminPayments() {
       return matchesSearch && matchesCategory && matchesGender
   })
 
+  // EXPORTAR DIRECTO A EXCEL CON TABLA FORMATEADA
   const exportToExcel = () => {
-      const headers = ['Fecha,Jugador,DNI,Detalle,Metodo,Monto\n'];
-      const rows = filteredPayments.map(p => {
+      const tableHeader = `<tr><th>Fecha</th><th>Jugador</th><th>DNI</th><th>Categoria</th><th>Metodo</th><th>Monto</th></tr>`;
+      const tableRows = filteredPayments.map(p => {
           const user = Array.isArray(p.users) ? p.users[0] : p.users;
           const date = format(parseISO(p.date), 'dd/MM/yyyy');
           const method = getMethodLabel(p.method).text;
           const category = p.category_snapshot || user?.category || '-';
-          return `${date},${user?.name || 'Eliminado'},${user?.dni || '-'},${category},${method},${p.amount}\n`;
-      });
+          return `<tr><td>${date}</td><td>${user?.name || ''}</td><td>${user?.dni || ''}</td><td>${category}</td><td>${method}</td><td>${p.amount}</td></tr>`;
+      }).join('');
 
-      const blob = new Blob([headers.concat(rows).join('')], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement("a");
+      const tableHtml = `<html><head><meta charset="UTF-8"></head><body><table border="1">${tableHeader}${tableRows}</table></body></html>`;
+      const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' });
       const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", `Pagos_Filtrados_${format(new Date(), 'dd-MM-yyyy')}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Planilla_Pagos_${format(new Date(), 'dd-MM-yyyy')}.xls`;
       link.click();
-      document.body.removeChild(link);
   };
 
   const totalRevenue = filteredPayments
@@ -157,7 +152,7 @@ export default function AdminPayments() {
                 className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-700 transition shadow-sm"
             >
                 <Download size={18}/>
-                <span className="hidden md:inline">Exportar</span>
+                <span className="hidden md:inline">Exportar Excel</span>
             </button>
             <div className="bg-white border border-gray-300 rounded-lg flex items-center px-3 py-2 shadow-sm hover:border-gray-400 transition">
                 <Calendar size={16} className="text-gray-500 mr-2"/>
@@ -251,6 +246,12 @@ export default function AdminPayments() {
                               const style = getMethodLabel(payment.method)
                               const isPositive = payment.amount > 0
                               const amountColor = payment.method === 'adjustment' ? 'text-blue-600' : (isPositive ? 'text-green-600' : 'text-blue-600')
+                              
+                              // Lógica de colores para M/F (RESTAURADA)
+                              const rawGender = user?.gender ? String(user.gender).toUpperCase().trim() : ''
+                              const isMale = rawGender.startsWith('M')
+                              const hasGender = rawGender.length > 0
+
                               return (
                                   <tr key={payment.id} className="hover:bg-gray-50 transition">
                                       <td className="p-4 text-xs font-medium text-gray-500">{format(parseISO(payment.date), 'dd/MM/yyyy')}</td>
@@ -259,9 +260,16 @@ export default function AdminPayments() {
                                           <p className="text-xs text-gray-400">{user?.email}</p>
                                       </td>
                                       <td className="p-4">
-                                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold border border-gray-200">
+                                          <div className="flex gap-1 flex-wrap">
+                                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold border border-gray-200">
                                               {payment.category_snapshot || user?.category || '-'}
-                                          </span>
+                                            </span>
+                                            {hasGender && (
+                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${isMale ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-pink-50 text-pink-600 border-pink-100'}`}>
+                                                    {isMale ? 'M' : 'F'}
+                                                 </span>
+                                            )}
+                                          </div>
                                       </td>
                                       <td className="p-4">
                                           <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${style.color}`}>{style.text}</span>
@@ -286,7 +294,7 @@ export default function AdminPayments() {
           </div>
       </div>
 
-      {/* VISTA PARA CELULARES */}
+      {/* VISTA PARA CELULARES (RESTAURADA CON M/F) */}
       <div className="md:hidden space-y-4">
         {loading ? (
           <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600"/></div>
@@ -298,6 +306,11 @@ export default function AdminPayments() {
             const style = getMethodLabel(payment.method)
             const isPositive = payment.amount > 0
             const amountColor = payment.method === 'adjustment' ? 'text-blue-600' : (isPositive ? 'text-green-600' : 'text-blue-600')
+            
+            const rawGender = user?.gender ? String(user.gender).toUpperCase().trim() : ''
+            const isMale = rawGender.startsWith('M')
+            const hasGender = rawGender.length > 0
+
             return (
               <div key={payment.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
                 <div className="flex justify-between items-start">
@@ -308,8 +321,13 @@ export default function AdminPayments() {
                   <div className={`text-right font-black text-base ${amountColor}`}>{isPositive ? '+' : ''}${payment.amount.toLocaleString()}</div>
                 </div>
                 <div className="flex items-center justify-between bg-gray-50 rounded-lg p-2.5">
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
                     <span className="px-2 py-0.5 bg-white text-gray-600 rounded text-[10px] font-bold border border-gray-200">{payment.category_snapshot || user?.category || '-'}</span>
+                    {hasGender && (
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${isMale ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-pink-50 text-pink-600 border-pink-100'}`}>
+                            {isMale ? 'M' : 'F'}
+                        </span>
+                    )}
                     <span className={`px-2 py-1 rounded text-[10px] font-bold border ${style.color}`}>{style.text}</span>
                   </div>
                   <button 
