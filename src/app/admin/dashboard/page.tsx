@@ -124,7 +124,7 @@ export default function AdminDashboard() {
       {/* HEADER + FILTRO - Ajustado a la izquierda en móvil */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div className="text-left">
-            <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Panel de Control</h1>
             <p className="text-gray-500 text-sm">Resumen de movimientos: <span className="font-semibold text-indigo-600">{periodLabel}</span></p>
         </div>
         <div className="bg-white border border-gray-300 rounded-lg flex items-center px-3 py-2 shadow-sm hover:border-gray-400 transition">
