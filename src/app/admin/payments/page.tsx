@@ -11,7 +11,8 @@ export default function AdminPayments() {
   const [searchTerm, setSearchTerm] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   
-  const [dateFilter, setDateFilter] = useState<'current' | 'last' | 'year'>('current')
+  // MODIFICADO: Agregamos 'last_year' a los estados posibles
+  const [dateFilter, setDateFilter] = useState<'current' | 'last' | 'year' | 'last_year'>('current')
   
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [genderFilter, setGenderFilter] = useState<string>('all')
@@ -34,9 +35,13 @@ export default function AdminPayments() {
         } else if (dateFilter === 'year') {
             startDate = startOfYear(now).toISOString()
             endDate = now.toISOString()
+        } 
+        // NUEVA LÓGICA: Año Pasado (1 de enero al 31 de diciembre del año anterior)
+        else if (dateFilter === 'last_year') {
+            startDate = new Date(now.getFullYear() - 1, 0, 1).toISOString()
+            endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59).toISOString()
         }
 
-        // Agregamos category_snapshot a la consulta
         const { data, error } = await supabase
             .from('payments')
             .select('*, users!inner(name, email, dni, category, gender)')
@@ -89,15 +94,10 @@ export default function AdminPayments() {
       const name = user?.name?.toLowerCase() || ''
       const dni = user?.dni || ''
       
-      // MEJORA: El filtro de categoría ahora prioriza la "Foto" (category_snapshot)
-      // Si no hay foto (pagos viejos), usa la categoría actual como respaldo.
       const historicCategory = p.category_snapshot || user?.category || ''
-      
       const genderRaw = user?.gender ? String(user.gender).toLowerCase().trim() : ''
 
       const matchesSearch = name.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm)
-      
-      // El filtro ahora se enlaza con la categoría histórica (la foto)
       const matchesCategory = categoryFilter === 'all' || historicCategory === categoryFilter
       
       const matchesGender = genderFilter === 'all' || 
@@ -133,6 +133,7 @@ export default function AdminPayments() {
                 <option value="current">Este Mes</option>
                 <option value="last">Mes Pasado</option>
                 <option value="year">Todo el Año</option>
+                <option value="last_year">Año Pasado</option>
             </select>
         </div>
       </div>
@@ -164,7 +165,7 @@ export default function AdminPayments() {
                           <option value="Menor">Menores</option>
                           <option value="Cadete">Cadetes</option>
                           <option value="Juvenil">Juveniles</option>
-                          <option value="Mayores">Mayores</option>
+                          <option value="Mayor">Mayores</option>
                       </select>
                   </div>
 
@@ -229,7 +230,6 @@ export default function AdminPayments() {
                                       </td>
                                       <td className="p-4">
                                           <div className="flex gap-1 flex-wrap">
-                                            {/* Mostramos la foto de la categoría si existe */}
                                             <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold border border-gray-200">
                                               {payment.category_snapshot || user?.category || '-'}
                                             </span>
@@ -306,7 +306,6 @@ export default function AdminPayments() {
 
                 <div className="flex items-center justify-between bg-gray-50 rounded-lg p-2.5">
                   <div className="flex gap-1.5">
-                    {/* Tarjeta móvil también usa la foto histórica */}
                     <span className="px-2 py-0.5 bg-white text-gray-600 rounded text-[10px] font-bold border border-gray-200">
                       {payment.category_snapshot || user?.category || '-'}
                     </span>
