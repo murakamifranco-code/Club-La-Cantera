@@ -54,27 +54,38 @@ export default function InboxPage() {
 
       try {
           if (type === 'approve') {
-              // 1. OBTENER CATEGORÍA ACTUAL DEL SOCIO (ARREGLO CLAVE)
-              const { data: userCategoryData } = await supabase
+              // 1. OBTENER DATOS FRESCOS (AÑO DE NACIMIENTO) PARA CÁLCULO REAL
+              const { data: userData } = await supabase
                   .from('users')
-                  .select('account_balance, category')
+                  .select('account_balance, birth_date')
                   .eq('id', item.user_id)
                   .single()
 
-              // 2. APROBAR E INYECTAR SNAPSHOT (ARREGLO CLAVE)
+              // ARREGLO: Cálculo matemático de categoría al vuelo (Independiente del texto guardado)
+              const birthYear = userData?.birth_date ? parseISO(userData.birth_date).getFullYear() : 0
+              const currentYear = new Date().getFullYear()
+              const age = currentYear - birthYear
+              
+              let calculatedCategory = 'Mayores'
+              if (age < 13) calculatedCategory = 'Infantiles'
+              else if (age <= 14) calculatedCategory = 'Menores'
+              else if (age <= 16) calculatedCategory = 'Cadetes'
+              else if (age <= 18) calculatedCategory = 'Juveniles'
+
+              // 2. APROBAR E INYECTAR SNAPSHOT CALCULADO
               const { error: updateError } = await supabase
                   .from('payments')
                   .update({ 
                     status: 'approved',
-                    category_snapshot: userCategoryData?.category || null // Guardamos la "foto" en plural
+                    category_snapshot: calculatedCategory // Se guarda el cálculo exacto de hoy
                   })
                   .eq('id', item.id)
 
               if (updateError) throw updateError
 
               // 3. Actualizar Saldo
-              if (userCategoryData) {
-                  const newBalance = (userCategoryData.account_balance || 0) + item.amount
+              if (userData) {
+                  const newBalance = (userData.account_balance || 0) + item.amount
                   await supabase
                       .from('users')
                       .update({ account_balance: newBalance })
