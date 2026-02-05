@@ -125,11 +125,11 @@ export default function PlayersPage() {
     if (!birthDateString) return '-'
     const birthYear = parseISO(birthDateString).getFullYear()
     const age = new Date().getFullYear() - birthYear 
-    if (age < 13) return `Infantil (${birthYear})`
-    if (age <= 14) return `Menor (${birthYear})`
-    if (age <= 16) return `Cadete (${birthYear})`
-    if (age <= 18) return `Juvenil (${birthYear})`
-    return `Mayor (${birthYear})`
+    if (age < 13) return `Infantil`
+    if (age <= 14) return `Menor`
+    if (age <= 16) return `Cadete`
+    if (age <= 18) return `Juvenil`
+    return `Mayor`
   }
 
   const openModal = (player?: Player) => {
@@ -157,8 +157,12 @@ export default function PlayersPage() {
           setIsSubmitting(false); return
       }
 
+      // CORRECCIÓN: Calculamos la categoría fiel antes de guardar
+      const calculatedCategory = getCategory(formData.birth_date);
+      const dataToSave = { ...formData, category: calculatedCategory };
+
       if (editingPlayer) { 
-        await supabase.from('users').update(formData).eq('id', editingPlayer.id) 
+        await supabase.from('users').update(dataToSave).eq('id', editingPlayer.id) 
       } 
       else { 
         const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -171,7 +175,7 @@ export default function PlayersPage() {
         if (authError) throw authError
         if (authData.user) {
             await supabase.from('users').insert({ 
-                ...formData, id: authData.user.id, role: 'player', status: 'active', account_balance: 0
+                ...dataToSave, id: authData.user.id, role: 'player', status: 'active', account_balance: 0
             })
         }
       }
@@ -189,7 +193,7 @@ export default function PlayersPage() {
       </div>
       <div className="relative"><div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Search className="h-5 w-5 text-gray-400" /></div><input type="text" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 sm:text-sm" placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
 
-      {/* VISTA PARA ESCRITORIO (Se oculta en celulares) */}
+      {/* VISTA PARA ESCRITORIO */}
       <div className="hidden md:block overflow-hidden rounded-lg bg-white shadow border border-gray-200">
         {loading ? ( <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div> ) : (
           <table className="min-w-full divide-y divide-gray-200">
@@ -203,21 +207,23 @@ export default function PlayersPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredPlayers.map((player) => (
+              {filteredPlayers.map((player) => {
+                const birthYear = player.birth_date ? parseISO(player.birth_date).getFullYear() : '';
+                return (
                 <tr key={player.id} className="hover:bg-gray-50 transition">
                   <td className="px-6 py-4"><div className="flex items-center"><div className={`h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white uppercase bg-indigo-500`}>{player.name.charAt(0)}</div><div className="ml-4"><div className="text-sm font-medium text-gray-900">{player.name}</div><div className="text-xs text-gray-500">{player.dni || player.email}</div></div></div></td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategory(player.birth_date)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategory(player.birth_date)} {birthYear && `(${birthYear})`}</td>
                   <td className="px-6 py-4 whitespace-nowrap"><div className={`text-sm font-bold ${player.account_balance < 0 ? 'text-red-600' : 'text-green-600'}`}>{player.account_balance < 0 ? '-' : '+'}${Math.abs(player.account_balance).toLocaleString()}</div></td>
                   <td className="px-6 py-4 whitespace-nowrap"><button onClick={() => handleStatusClick(player)} className={`px-2 py-1 text-xs font-medium rounded-full ${player.status === 'active' ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}>{player.status === 'active' ? 'Activo' : 'Inactivo'}</button></td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"><div className="flex justify-end gap-2"><button onClick={() => openStatement(player)} className="text-gray-500 hover:text-green-600 p-1 bg-gray-50 hover:bg-green-50 rounded-md transition" title="Ver Cuenta"><DollarSign size={18} /></button><button onClick={() => openModal(player)} className="text-gray-500 hover:text-indigo-600 p-1 bg-gray-50 hover:bg-indigo-50 rounded-md transition" title="Editar Socio"><Edit2 size={18} /></button></div></td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* VISTA PARA CELULARES (Se oculta en escritorio) */}
+      {/* VISTA PARA CELULARES */}
       <div className="md:hidden space-y-4">
         {loading ? (
           <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div>
@@ -274,7 +280,7 @@ export default function PlayersPage() {
         )}
       </div>
 
-      {/* MODAL ESTADO DE CUENTA IGUAL */}
+      {/* MODALS */}
       {isStatementOpen && selectedPlayerForStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
@@ -318,7 +324,6 @@ export default function PlayersPage() {
         </div>
       )}
 
-      {/* MODAL ALTA/BAJA IGUAL */}
       {isStatusModalOpen && playerToToggle && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="w-full max-w-md rounded-xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -336,7 +341,6 @@ export default function PlayersPage() {
          </div>
       )}
 
-      {/* MODAL NUEVO/EDITAR SOCIO IGUAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl overflow-hidden border border-gray-100">
