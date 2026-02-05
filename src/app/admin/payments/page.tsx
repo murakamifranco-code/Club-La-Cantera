@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import { Search, Eye, Trash2, Loader2, X, Calendar, Filter, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Search, Eye, Trash2, Loader2, X, Calendar, Filter, AlertTriangle, CheckCircle, Download } from 'lucide-react'
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns'
 
 export default function AdminPayments() {
@@ -11,7 +11,6 @@ export default function AdminPayments() {
   const [searchTerm, setSearchTerm] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   
-  // ESTADO PARA EL NUEVO MODAL DE ELIMINACIÓN
   const [deleteModal, setDeleteModal] = useState<{ show: boolean, id: string, amount: number, userId: string } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -66,7 +65,6 @@ export default function AdminPayments() {
     }
   }
 
-  // LÓGICA DE ELIMINACIÓN ACTUALIZADA
   const executeDelete = async () => {
       if (!deleteModal) return
       setIsDeleting(true)
@@ -116,6 +114,27 @@ export default function AdminPayments() {
       return matchesSearch && matchesCategory && matchesGender
   })
 
+  const exportToExcel = () => {
+      const headers = ['Fecha,Jugador,DNI,Detalle,Metodo,Monto\n'];
+      const rows = filteredPayments.map(p => {
+          const user = Array.isArray(p.users) ? p.users[0] : p.users;
+          const date = format(parseISO(p.date), 'dd/MM/yyyy');
+          const method = getMethodLabel(p.method).text;
+          const category = p.category_snapshot || user?.category || '-';
+          return `${date},${user?.name || 'Eliminado'},${user?.dni || '-'},${category},${method},${p.amount}\n`;
+      });
+
+      const blob = new Blob([headers.concat(rows).join('')], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Pagos_Filtrados_${format(new Date(), 'dd-MM-yyyy')}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+  };
+
   const totalRevenue = filteredPayments
     .filter(p => p.amount > 0 && p.method !== 'adjustment')
     .reduce((acc, curr) => acc + curr.amount, 0)
@@ -132,19 +151,28 @@ export default function AdminPayments() {
             </p>
         </div>
         
-        <div className="bg-white border border-gray-300 rounded-lg flex items-center px-3 py-2 shadow-sm hover:border-gray-400 transition">
-            <Calendar size={16} className="text-gray-500 mr-2"/>
-            <select 
-                className="bg-transparent font-bold text-gray-700 outline-none text-sm cursor-pointer pr-2" 
-                value={dateFilter} 
-                onChange={(e) => setDateFilter(e.target.value as any)}
+        <div className="flex items-center gap-2">
+            <button 
+                onClick={exportToExcel}
+                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-700 transition shadow-sm"
             >
-                <option value="current">Este Mes</option>
-                <option value="last">Mes Pasado</option>
-                <option value="year">Todo el Año</option>
-                <option value="last_year">Año Pasado</option>
-                <option value="all">Todo el Historial</option>
-            </select>
+                <Download size={18}/>
+                <span className="hidden md:inline">Exportar</span>
+            </button>
+            <div className="bg-white border border-gray-300 rounded-lg flex items-center px-3 py-2 shadow-sm hover:border-gray-400 transition">
+                <Calendar size={16} className="text-gray-500 mr-2"/>
+                <select 
+                    className="bg-transparent font-bold text-gray-700 outline-none text-sm cursor-pointer pr-2" 
+                    value={dateFilter} 
+                    onChange={(e) => setDateFilter(e.target.value as any)}
+                >
+                    <option value="current">Este Mes</option>
+                    <option value="last">Mes Pasado</option>
+                    <option value="year">Todo el Año</option>
+                    <option value="last_year">Año Pasado</option>
+                    <option value="all">Todo el Historial</option>
+                </select>
+            </div>
         </div>
       </div>
 
@@ -221,49 +249,22 @@ export default function AdminPayments() {
                           filteredPayments.map((payment) => {
                               const user = Array.isArray(payment.users) ? payment.users[0] : payment.users
                               const style = getMethodLabel(payment.method)
-                              const isAdjustment = payment.method === 'adjustment'
                               const isPositive = payment.amount > 0
-                              const amountColor = isAdjustment ? 'text-blue-600' : (isPositive ? 'text-green-600' : 'text-blue-600')
-                              const showEye = payment.method?.includes('transfer') && payment.proof_url
-                              const rawGender = user?.gender ? String(user.gender).toUpperCase().trim() : ''
-                              const isMale = rawGender.startsWith('M')
-                              const hasGender = rawGender.length > 0
-
+                              const amountColor = payment.method === 'adjustment' ? 'text-blue-600' : (isPositive ? 'text-green-600' : 'text-blue-600')
                               return (
                                   <tr key={payment.id} className="hover:bg-gray-50 transition">
-                                      <td className="p-4 text-xs font-medium text-gray-500">
-                                          {format(parseISO(payment.date), 'dd/MM/yyyy')}
-                                      </td>
+                                      <td className="p-4 text-xs font-medium text-gray-500">{format(parseISO(payment.date), 'dd/MM/yyyy')}</td>
                                       <td className="p-4">
                                           <p className="font-bold text-gray-900 text-sm">{user?.name || 'Usuario Eliminado'}</p>
                                           <p className="text-xs text-gray-400">{user?.email}</p>
                                       </td>
                                       <td className="p-4">
-                                          <div className="flex gap-1 flex-wrap">
-                                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold border border-gray-200">
+                                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold border border-gray-200">
                                               {payment.category_snapshot || user?.category || '-'}
-                                            </span>
-                                            {hasGender && (
-                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${isMale ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-pink-50 text-pink-600 border-pink-100'}`}>
-                                                    {isMale ? 'M' : 'F'}
-                                                 </span>
-                                            )}
-                                          </div>
+                                          </span>
                                       </td>
                                       <td className="p-4">
-                                          <div className="flex items-center gap-2">
-                                              <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${style.color}`}>
-                                                  {style.text}
-                                              </span>
-                                              {showEye && (
-                                                  <button 
-                                                    onClick={() => setPreviewUrl(payment.proof_url)}
-                                                    className="text-indigo-600 hover:text-indigo-800 transition bg-indigo-50 p-1 rounded-full"
-                                                  >
-                                                      <Eye size={14}/>
-                                                  </button>
-                                              )}
-                                          </div>
+                                          <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${style.color}`}>{style.text}</span>
                                       </td>
                                       <td className={`p-4 text-right font-black text-sm ${amountColor}`}>
                                           {isPositive ? '+' : ''}${payment.amount.toLocaleString()}
@@ -295,50 +296,28 @@ export default function AdminPayments() {
           filteredPayments.map((payment) => {
             const user = Array.isArray(payment.users) ? payment.users[0] : payment.users
             const style = getMethodLabel(payment.method)
-            const isAdjustment = payment.method === 'adjustment'
             const isPositive = payment.amount > 0
-            const amountColor = isAdjustment ? 'text-blue-600' : (isPositive ? 'text-green-600' : 'text-blue-600')
-            const showEye = payment.method?.includes('transfer') && payment.proof_url
-
+            const amountColor = payment.method === 'adjustment' ? 'text-blue-600' : (isPositive ? 'text-green-600' : 'text-blue-600')
             return (
               <div key={payment.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
                 <div className="flex justify-between items-start">
                   <div className="text-left">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                      {format(parseISO(payment.date), 'dd/MM/yyyy')}
-                    </p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{format(parseISO(payment.date), 'dd/MM/yyyy')}</p>
                     <h3 className="font-bold text-gray-900 text-sm leading-tight mt-0.5">{user?.name || 'Usuario Eliminado'}</h3>
                   </div>
-                  <div className={`text-right font-black text-base ${amountColor}`}>
-                    {isPositive ? '+' : ''}${payment.amount.toLocaleString()}
-                  </div>
+                  <div className={`text-right font-black text-base ${amountColor}`}>{isPositive ? '+' : ''}${payment.amount.toLocaleString()}</div>
                 </div>
-
                 <div className="flex items-center justify-between bg-gray-50 rounded-lg p-2.5">
                   <div className="flex gap-1.5">
-                    <span className="px-2 py-0.5 bg-white text-gray-600 rounded text-[10px] font-bold border border-gray-200">
-                      {payment.category_snapshot || user?.category || '-'}
-                    </span>
-                    <span className={`px-2 py-1 rounded text-[10px] font-bold border ${style.color}`}>
-                      {style.text}
-                    </span>
+                    <span className="px-2 py-0.5 bg-white text-gray-600 rounded text-[10px] font-bold border border-gray-200">{payment.category_snapshot || user?.category || '-'}</span>
+                    <span className={`px-2 py-1 rounded text-[10px] font-bold border ${style.color}`}>{style.text}</span>
                   </div>
-                  <div className="flex gap-2">
-                    {showEye && (
-                      <button 
-                        onClick={() => setPreviewUrl(payment.proof_url)}
-                        className="text-indigo-600 bg-white border border-indigo-100 p-1.5 rounded-lg shadow-sm"
-                      >
-                        <Eye size={16}/>
-                      </button>
-                    )}
-                    <button 
-                      onClick={() => setDeleteModal({ show: true, id: payment.id, amount: payment.amount, userId: payment.user_id })}
-                      className="text-gray-400 bg-white border border-gray-100 p-1.5 rounded-lg shadow-sm active:text-red-600"
-                    >
-                      <Trash2 size={16}/>
-                    </button>
-                  </div>
+                  <button 
+                    onClick={() => setDeleteModal({ show: true, id: payment.id, amount: payment.amount, userId: payment.user_id })}
+                    className="text-gray-400 bg-white border border-gray-100 p-1.5 rounded-lg shadow-sm"
+                  >
+                    <Trash2 size={16}/>
+                  </button>
                 </div>
               </div>
             )
@@ -361,7 +340,7 @@ export default function AdminPayments() {
         </div>
       )}
 
-      {/* MODAL DE ELIMINACIÓN PERSONALIZADO */}
+      {/* MODAL DE ELIMINACIÓN */}
       {deleteModal?.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in zoom-in-95">
@@ -370,22 +349,10 @@ export default function AdminPayments() {
                         <AlertTriangle size={32}/>
                     </div>
                     <h3 className="text-xl font-black text-gray-900 mb-2 uppercase italic tracking-tight">¿Eliminar Pago?</h3>
-                    <p className="text-gray-500 text-sm mb-6 font-medium">
-                        Esta acción borrará el registro y ajustará el saldo del jugador automáticamente. No se puede deshacer.
-                    </p>
+                    <p className="text-gray-500 text-sm mb-6 font-medium">Esta acción borrará el registro y ajustará el saldo automáticamente.</p>
                     <div className="grid grid-cols-2 gap-3 w-full">
-                        <button 
-                            disabled={isDeleting} 
-                            onClick={() => setDeleteModal(null)} 
-                            className="py-3 px-4 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition text-sm"
-                        >
-                            Cancelar
-                        </button>
-                        <button 
-                            disabled={isDeleting} 
-                            onClick={executeDelete} 
-                            className="py-3 px-4 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition flex justify-center items-center gap-2 text-sm"
-                        >
+                        <button disabled={isDeleting} onClick={() => setDeleteModal(null)} className="py-3 px-4 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition text-sm">Cancelar</button>
+                        <button disabled={isDeleting} onClick={executeDelete} className="py-3 px-4 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition flex justify-center items-center gap-2 text-sm">
                             {isDeleting ? <Loader2 className="animate-spin h-4 w-4"/> : 'Sí, Eliminar'}
                         </button>
                     </div>
@@ -393,7 +360,6 @@ export default function AdminPayments() {
             </div>
         </div>
       )}
-
     </div>
   )
 }
