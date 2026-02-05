@@ -11,8 +11,8 @@ export default function AdminPayments() {
   const [searchTerm, setSearchTerm] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   
-  // MODIFICADO: Agregamos 'last_year' a los estados posibles
-  const [dateFilter, setDateFilter] = useState<'current' | 'last' | 'year' | 'last_year'>('current')
+  // MODIFICADO: Agregamos 'all' a los estados posibles
+  const [dateFilter, setDateFilter] = useState<'current' | 'last' | 'year' | 'last_year' | 'all'>('current')
   
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [genderFilter, setGenderFilter] = useState<string>('all')
@@ -25,32 +25,39 @@ export default function AdminPayments() {
     setLoading(true)
     try {
         const now = new Date()
-        let startDate = startOfMonth(now).toISOString()
-        let endDate = endOfMonth(now).toISOString()
+        let startDate = null
+        let endDate = null
 
-        if (dateFilter === 'last') {
+        // Lógica de fechas según el filtro seleccionado
+        if (dateFilter === 'current') {
+            startDate = startOfMonth(now).toISOString()
+            endDate = endOfMonth(now).toISOString()
+        } else if (dateFilter === 'last') {
             const lastMonth = subMonths(now, 1)
             startDate = startOfMonth(lastMonth).toISOString()
             endDate = endOfMonth(lastMonth).toISOString()
         } else if (dateFilter === 'year') {
             startDate = startOfYear(now).toISOString()
             endDate = now.toISOString()
-        } 
-        // NUEVA LÓGICA: Año Pasado (1 de enero al 31 de diciembre del año anterior)
-        else if (dateFilter === 'last_year') {
+        } else if (dateFilter === 'last_year') {
             startDate = new Date(now.getFullYear() - 1, 0, 1).toISOString()
             endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59).toISOString()
         }
+        // Si dateFilter es 'all', startDate y endDate se mantienen null para traer todo
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('payments')
             .select('*, users!inner(name, email, dni, category, gender)')
             .neq('method', 'cuota')
-            .gte('date', startDate)
-            .lte('date', endDate)
             .or('status.eq.approved,status.eq.completed,method.eq.adjustment')
             .order('date', { ascending: false })
-            .limit(500)
+
+        // Solo aplicamos el rango de fechas si NO es 'all'
+        if (dateFilter !== 'all' && startDate && endDate) {
+            query = query.gte('date', startDate).lte('date', endDate)
+        }
+
+        const { data, error } = await query.limit(1000)
 
         if (error) throw error
         setPayments(data || [])
@@ -134,6 +141,7 @@ export default function AdminPayments() {
                 <option value="last">Mes Pasado</option>
                 <option value="year">Todo el Año</option>
                 <option value="last_year">Año Pasado</option>
+                <option value="all">Todo el Historial</option>
             </select>
         </div>
       </div>
