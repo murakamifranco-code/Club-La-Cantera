@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import { Search, Eye, Trash2, Loader2, X, Calendar, Filter } from 'lucide-react'
+import { Search, Eye, Trash2, Loader2, X, Calendar, Filter, AlertTriangle, CheckCircle } from 'lucide-react'
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, startOfYear } from 'date-fns'
 
 export default function AdminPayments() {
@@ -11,9 +11,11 @@ export default function AdminPayments() {
   const [searchTerm, setSearchTerm] = useState('')
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   
-  // MODIFICADO: Agregamos 'all' a los estados posibles
+  // ESTADO PARA EL NUEVO MODAL DE ELIMINACIÓN
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean, id: string, amount: number, userId: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   const [dateFilter, setDateFilter] = useState<'current' | 'last' | 'year' | 'last_year' | 'all'>('current')
-  
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [genderFilter, setGenderFilter] = useState<string>('all')
 
@@ -28,7 +30,6 @@ export default function AdminPayments() {
         let startDate = null
         let endDate = null
 
-        // Lógica de fechas según el filtro seleccionado
         if (dateFilter === 'current') {
             startDate = startOfMonth(now).toISOString()
             endDate = endOfMonth(now).toISOString()
@@ -43,7 +44,6 @@ export default function AdminPayments() {
             startDate = new Date(now.getFullYear() - 1, 0, 1).toISOString()
             endDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59).toISOString()
         }
-        // Si dateFilter es 'all', startDate y endDate se mantienen null para traer todo
 
         let query = supabase
             .from('payments')
@@ -52,13 +52,11 @@ export default function AdminPayments() {
             .or('status.eq.approved,status.eq.completed,method.eq.adjustment')
             .order('date', { ascending: false })
 
-        // Solo aplicamos el rango de fechas si NO es 'all'
         if (dateFilter !== 'all' && startDate && endDate) {
             query = query.gte('date', startDate).lte('date', endDate)
         }
 
         const { data, error } = await query.limit(1000)
-
         if (error) throw error
         setPayments(data || [])
     } catch (error) {
@@ -68,8 +66,11 @@ export default function AdminPayments() {
     }
   }
 
-  const handleDelete = async (id: string, amount: number, userId: string) => {
-      if (!confirm('¿Estás seguro de eliminar este registro? Se ajustará el saldo del jugador.')) return
+  // LÓGICA DE ELIMINACIÓN ACTUALIZADA
+  const executeDelete = async () => {
+      if (!deleteModal) return
+      setIsDeleting(true)
+      const { id, amount, userId } = deleteModal
 
       try {
           const { error: deleteError } = await supabase.from('payments').delete().eq('id', id)
@@ -82,9 +83,12 @@ export default function AdminPayments() {
                   account_balance: user.account_balance + adjustment
               }).eq('id', userId)
           }
+          setDeleteModal(null)
           fetchPayments()
       } catch (error) {
           alert('Error al eliminar.')
+      } finally {
+          setIsDeleting(false)
       }
   }
 
@@ -100,15 +104,11 @@ export default function AdminPayments() {
       const user = Array.isArray(p.users) ? p.users[0] : p.users
       const name = user?.name?.toLowerCase() || ''
       const dni = user?.dni || ''
-      
       const historicCategory = p.category_snapshot || user?.category || ''
       const genderRaw = user?.gender ? String(user.gender).toLowerCase().trim() : ''
 
       const matchesSearch = name.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm)
-      
-      // ARREGLO: El filtro ahora busca el texto exacto que guardamos (plurales)
       const matchesCategory = categoryFilter === 'all' || historicCategory === categoryFilter
-      
       const matchesGender = genderFilter === 'all' || 
         (genderFilter === 'Femenino' && (genderRaw === 'femenino' || genderRaw === 'female' || genderRaw === 'f')) ||
         (genderFilter === 'Masculino' && (genderRaw === 'masculino' || genderRaw === 'male' || genderRaw === 'm'))
@@ -171,7 +171,6 @@ export default function AdminPayments() {
                         className="bg-transparent text-xs font-bold text-gray-600 outline-none cursor-pointer"
                       >
                           <option value="all">Categorías</option>
-                          {/* ARREGLO: Values sincronizados con la base de datos */}
                           <option value="Infantiles">Infantiles</option>
                           <option value="Menores">Menores</option>
                           <option value="Cadetes">Cadetes</option>
@@ -271,7 +270,7 @@ export default function AdminPayments() {
                                       </td>
                                       <td className="p-4 text-center">
                                           <button 
-                                            onClick={() => handleDelete(payment.id, payment.amount, payment.user_id)}
+                                            onClick={() => setDeleteModal({ show: true, id: payment.id, amount: payment.amount, userId: payment.user_id })}
                                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                                           >
                                               <Trash2 size={16}/>
@@ -334,7 +333,7 @@ export default function AdminPayments() {
                       </button>
                     )}
                     <button 
-                      onClick={() => handleDelete(payment.id, payment.amount, payment.user_id)}
+                      onClick={() => setDeleteModal({ show: true, id: payment.id, amount: payment.amount, userId: payment.user_id })}
                       className="text-gray-400 bg-white border border-gray-100 p-1.5 rounded-lg shadow-sm active:text-red-600"
                     >
                       <Trash2 size={16}/>
@@ -357,6 +356,39 @@ export default function AdminPayments() {
                 </div>
                 <div className="flex-1 overflow-auto p-4 bg-gray-100 flex items-center justify-center">
                     <img src={previewUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-sm" alt="Comprobante"/>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* MODAL DE ELIMINACIÓN PERSONALIZADO */}
+      {deleteModal?.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in zoom-in-95">
+                <div className="flex flex-col items-center text-center">
+                    <div className="h-16 w-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4">
+                        <AlertTriangle size={32}/>
+                    </div>
+                    <h3 className="text-xl font-black text-gray-900 mb-2 uppercase italic tracking-tight">¿Eliminar Pago?</h3>
+                    <p className="text-gray-500 text-sm mb-6 font-medium">
+                        Esta acción borrará el registro y ajustará el saldo del jugador automáticamente. No se puede deshacer.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 w-full">
+                        <button 
+                            disabled={isDeleting} 
+                            onClick={() => setDeleteModal(null)} 
+                            className="py-3 px-4 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition text-sm"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            disabled={isDeleting} 
+                            onClick={executeDelete} 
+                            className="py-3 px-4 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition flex justify-center items-center gap-2 text-sm"
+                        >
+                            {isDeleting ? <Loader2 className="animate-spin h-4 w-4"/> : 'Sí, Eliminar'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
