@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { 
   Loader2, User, Lock, LogIn, AlertCircle, LogOut, 
-  CreditCard, Shield, UserCircle, Eye, EyeOff, Download, Share // Agregado Share
+  CreditCard, Shield, UserCircle, Eye, EyeOff, Download, Share, X // Agregado X
 } from 'lucide-react'
 
 export default function PortalLogin() {
@@ -24,7 +24,8 @@ export default function PortalLogin() {
   // --- LÓGICA DE INSTALACIÓN (ANDROID + IOS) ---
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallBtn, setShowInstallBtn] = useState(false);
-  const [isIOS, setIsIOS] = useState(false); // Nuevo estado para iPhone
+  const [isIOS, setIsIOS] = useState(false); 
+  const [hideIOSBanner, setHideIOSBanner] = useState(false); // Estado para cerrar el cartel
 
   useEffect(() => {
     const checkSession = async () => {
@@ -45,10 +46,13 @@ export default function PortalLogin() {
     }
     checkSession()
 
-    // DETECTAR SI ES IPHONE/IPAD
+    // DETECTAR SI ES IPHONE/IPAD Y SI YA CERRÓ EL MENSAJE
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isApple = /iphone|ipad|ipod/.test(userAgent);
+    const hasDismissed = localStorage.getItem('ios_banner_dismissed') === 'true';
+    
     setIsIOS(isApple);
+    setHideIOSBanner(hasDismissed);
 
     // Escuchador para capturar el evento de instalación (Chrome/Android)
     const handler = (e: any) => {
@@ -60,6 +64,11 @@ export default function PortalLogin() {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, [])
+
+  const dismissIOSBanner = () => {
+    setHideIOSBanner(true);
+    localStorage.setItem('ios_banner_dismissed', 'true');
+  };
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
@@ -188,10 +197,16 @@ export default function PortalLogin() {
               </button>
             )}
 
-            {/* CARTEL AYUDA IPHONE */}
-            {isIOS && (
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-2xl animate-in fade-in zoom-in duration-500">
-                <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter leading-tight flex items-center justify-center gap-2">
+            {/* CARTEL AYUDA IPHONE (Ahora descartable) */}
+            {isIOS && !hideIOSBanner && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-2xl relative animate-in fade-in zoom-in duration-500">
+                <button 
+                  onClick={dismissIOSBanner}
+                  className="absolute -top-2 -right-2 bg-white border border-blue-200 text-blue-400 rounded-full p-1 shadow-sm hover:text-red-500 transition-colors"
+                >
+                    <X size={12} />
+                </button>
+                <p className="text-[10px] font-black text-blue-700 uppercase tracking-tighter leading-tight flex items-center justify-center gap-2 pr-2">
                    <Share size={14} className="shrink-0" /> Instalá la App: Tocá compartir y "Agregar al inicio"
                 </p>
               </div>
