@@ -105,6 +105,8 @@ export default function AdminPayments() {
       const genderRaw = user?.gender ? String(user.gender).toLowerCase().trim() : ''
 
       const matchesSearch = name.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm)
+      
+      // ARREGLO: El filtro ahora busca el texto exacto que guardamos (plurales)
       const matchesCategory = categoryFilter === 'all' || historicCategory === categoryFilter
       
       const matchesGender = genderFilter === 'all' || 
@@ -169,11 +171,12 @@ export default function AdminPayments() {
                         className="bg-transparent text-xs font-bold text-gray-600 outline-none cursor-pointer"
                       >
                           <option value="all">Categorías</option>
-                          <option value="Infantil">Infantiles</option>
-                          <option value="Menor">Menores</option>
-                          <option value="Cadete">Cadetes</option>
-                          <option value="Juvenil">Juveniles</option>
-                          <option value="Mayor">Mayores</option>
+                          {/* ARREGLO: Values sincronizados con la base de datos */}
+                          <option value="Infantiles">Infantiles</option>
+                          <option value="Menores">Menores</option>
+                          <option value="Cadetes">Cadetes</option>
+                          <option value="Juveniles">Juveniles</option>
+                          <option value="Mayores">Mayores</option>
                       </select>
                   </div>
 
