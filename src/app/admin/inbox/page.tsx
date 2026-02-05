@@ -40,10 +40,8 @@ export default function InboxPage() {
       setConfirmModal({ show: true, type, item })
   }
 
-  // --- FUNCIÓN INTELIGENTE PARA ABRIR VISOR ---
   const openPreview = (url: string) => {
       if (!url) return
-      // Detectamos si es PDF mirando la extensión del link
       const isPdf = url.toLowerCase().includes('.pdf')
       setFileType(isPdf ? 'pdf' : 'image')
       setPreviewUrl(url)
@@ -56,23 +54,27 @@ export default function InboxPage() {
 
       try {
           if (type === 'approve') {
-              // 1. Aprobar
+              // 1. OBTENER CATEGORÍA ACTUAL DEL SOCIO (ARREGLO CLAVE)
+              const { data: userCategoryData } = await supabase
+                  .from('users')
+                  .select('account_balance, category')
+                  .eq('id', item.user_id)
+                  .single()
+
+              // 2. APROBAR E INYECTAR SNAPSHOT (ARREGLO CLAVE)
               const { error: updateError } = await supabase
                   .from('payments')
-                  .update({ status: 'approved' })
+                  .update({ 
+                    status: 'approved',
+                    category_snapshot: userCategoryData?.category || null // Guardamos la "foto" en plural
+                  })
                   .eq('id', item.id)
 
               if (updateError) throw updateError
 
-              // 2. Actualizar Saldo
-              const { data: userData } = await supabase
-                  .from('users')
-                  .select('account_balance')
-                  .eq('id', item.user_id)
-                  .single()
-
-              if (userData) {
-                  const newBalance = (userData.account_balance || 0) + item.amount
+              // 3. Actualizar Saldo
+              if (userCategoryData) {
+                  const newBalance = (userCategoryData.account_balance || 0) + item.amount
                   await supabase
                       .from('users')
                       .update({ account_balance: newBalance })
@@ -190,16 +192,13 @@ export default function InboxPage() {
         </div>
       )}
 
-      {/* --- MODAL VISOR (AJUSTABLE Y CON CRUZ VISIBLE) --- */}
+      {/* MODAL VISOR */}
       {previewUrl && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setPreviewUrl(null)}>
-              
-              {/* Contenedor: Se adapta (w-auto) si es imagen, se fija (w-full) si es PDF */}
               <div 
                   className={`relative bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] ${fileType === 'pdf' ? 'w-full max-w-4xl h-[80vh]' : 'w-auto max-w-5xl h-auto'}`} 
                   onClick={e => e.stopPropagation()}
               >
-                  {/* Encabezado: Gris oscuro para que la X se vea bien */}
                   <div className="p-3 bg-gray-100 border-b border-gray-200 flex justify-between items-center shrink-0">
                        <div className="flex items-center gap-3">
                           <h3 className="font-bold text-gray-800 text-sm uppercase">Comprobante</h3>
@@ -207,22 +206,18 @@ export default function InboxPage() {
                              <ExternalLink size={12}/> Abrir original
                           </a>
                        </div>
-                      {/* Botón Cerrar: Fondo gris oscuro al pasar el mouse */}
                       <button onClick={() => setPreviewUrl(null)} className="p-1.5 text-gray-600 hover:bg-gray-300 hover:text-black rounded-full transition">
                           <X size={20}/>
                       </button>
                   </div>
-                  
                   <div className="flex-1 bg-gray-200 relative flex items-center justify-center p-2 overflow-auto">
                       {fileType === 'image' ? (
-                          /* IMAGEN: Usa etiqueta IMG para ajustarse al contenido sin bordes blancos */
                           <img 
                             src={previewUrl} 
                             alt="Comprobante" 
                             className="max-w-full max-h-[80vh] object-contain rounded shadow-sm bg-white" 
                           />
                       ) : (
-                          /* PDF: Usa IFRAME */
                           <iframe 
                             src={previewUrl} 
                             className="w-full h-full border-0 rounded bg-white shadow-sm" 
