@@ -121,6 +121,7 @@ export default function PlayersPage() {
       setPlayerTransactions(transactions)
   }
 
+  // LOGICA CORREGIDA A PLURALES
   const getCategory = (birthDateString?: string) => {
     if (!birthDateString) return '-'
     const birthYear = parseISO(birthDateString).getFullYear()
@@ -157,7 +158,7 @@ export default function PlayersPage() {
           setIsSubmitting(false); return
       }
 
-      // CORRECCIÓN: Calculamos la categoría fiel antes de guardar
+      // ARREGLO CLAVE: Forzamos el guardado de la categoría en plural en la tabla 'users'
       const calculatedCategory = getCategory(formData.birth_date);
       const dataToSave = { ...formData, category: calculatedCategory };
 
