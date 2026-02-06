@@ -65,41 +65,26 @@ export default function AdminPayments() {
     }
   }
 
-  // --- FUNCIÓN CORREGIDA PARA EVITAR EL DESCUENTO DUPLICADO ---
+  // --- FUNCIÓN DE ELIMINACIÓN CORREGIDA (DEJAMOS QUE EL TRIGGER DE SUPABASE TRABAJE) ---
   const executeDelete = async () => {
       if (!deleteModal) return
       setIsDeleting(true)
-      const { id, amount, userId } = deleteModal
+      const { id } = deleteModal
 
       try {
-          // 1. Primero borramos el pago de la tabla payments
-          const { error: deleteError } = await supabase.from('payments').delete().eq('id', id)
+          // Solo borramos el registro. 
+          // El trigger 'on_payment_deleted' en Supabase ajustará el saldo automáticamente.
+          const { error: deleteError } = await supabase
+              .from('payments')
+              .delete()
+              .eq('id', id)
+
           if (deleteError) throw deleteError
-
-          // 2. Traemos el saldo ACTUALIZADO del usuario directamente de la DB (lectura fresca)
-          const { data: user, error: userError } = await supabase
-              .from('users')
-              .select('account_balance')
-              .eq('id', userId)
-              .single()
-
-          if (userError || !user) throw new Error("No se pudo encontrar el usuario")
-
-          // 3. Calculamos el nuevo balance restando el monto UNA SOLA VEZ
-          // Importante: Usamos Number() para asegurar que no haya errores de tipo
-          const newBalance = Number(user.account_balance) - Number(amount)
-
-          const { error: updateError } = await supabase
-              .from('users')
-              .update({ account_balance: newBalance })
-              .eq('id', userId)
-
-          if (updateError) throw updateError
 
           setDeleteModal(null)
           fetchPayments()
-      } catch (error) {
-          alert('Error al eliminar y ajustar saldo.')
+      } catch (error: any) {
+          alert('Error al eliminar: ' + error.message)
       } finally {
           setIsDeleting(false)
       }
@@ -140,6 +125,7 @@ export default function AdminPayments() {
           const dni = user?.dni || '';
           return [date, name.replace(/;/g, ''), dni, category, method, p.amount].join(';');
       }).join('\n');
+
       const content = headers + '\n' + rows;
       const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
