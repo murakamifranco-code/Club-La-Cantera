@@ -54,14 +54,13 @@ export default function InboxPage() {
 
       try {
           if (type === 'approve') {
-              // 1. OBTENER DATOS FRESCOS (AÑO DE NACIMIENTO) PARA CÁLCULO REAL
+              // 1. OBTENER DATOS FRESCOS PARA CÁLCULO DE CATEGORÍA
               const { data: userData } = await supabase
                   .from('users')
-                  .select('account_balance, birth_date')
+                  .select('birth_date')
                   .eq('id', item.user_id)
                   .single()
 
-              // ARREGLO: Cálculo matemático de categoría al vuelo (Independiente del texto guardado)
               const birthYear = userData?.birth_date ? parseISO(userData.birth_date).getFullYear() : 0
               const currentYear = new Date().getFullYear()
               const age = currentYear - birthYear
@@ -72,25 +71,17 @@ export default function InboxPage() {
               else if (age <= 16) calculatedCategory = 'Cadetes'
               else if (age <= 18) calculatedCategory = 'Juveniles'
 
-              // 2. APROBAR E INYECTAR SNAPSHOT CALCULADO
+              // 2. APROBAR E INYECTAR SNAPSHOT
+              // Se elimina la actualización manual del balance para dejar que el Trigger de DB actúe solo una vez.
               const { error: updateError } = await supabase
                   .from('payments')
                   .update({ 
                     status: 'approved',
-                    category_snapshot: calculatedCategory // Se guarda el cálculo exacto de hoy
+                    category_snapshot: calculatedCategory 
                   })
                   .eq('id', item.id)
 
               if (updateError) throw updateError
-
-              // 3. Actualizar Saldo
-              if (userData) {
-                  const newBalance = (userData.account_balance || 0) + item.amount
-                  await supabase
-                      .from('users')
-                      .update({ account_balance: newBalance })
-                      .eq('id', item.user_id)
-              }
               
               showToast(`¡Pago de ${item.users?.name} aprobado!`, 'success')
 
