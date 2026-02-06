@@ -65,38 +65,41 @@ export default function AdminPayments() {
     }
   }
 
-  // --- LÓGICA DE ELIMINACIÓN CORREGIDA PARA EVITAR DESCUENTO DUPLICADO ---
+  // --- FUNCIÓN CORREGIDA PARA EVITAR EL DESCUENTO DUPLICADO ---
   const executeDelete = async () => {
       if (!deleteModal) return
       setIsDeleting(true)
       const { id, amount, userId } = deleteModal
+
       try {
-          // 1. Eliminamos el registro de pago primero
+          // 1. Primero borramos el pago de la tabla payments
           const { error: deleteError } = await supabase.from('payments').delete().eq('id', id)
           if (deleteError) throw deleteError
 
-          // 2. Obtenemos el balance actual real directamente de la DB para evitar arrastrar errores
+          // 2. Traemos el saldo ACTUALIZADO del usuario directamente de la DB (lectura fresca)
           const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('account_balance')
-            .eq('id', userId)
-            .single()
+              .from('users')
+              .select('account_balance')
+              .eq('id', userId)
+              .single()
 
-          if (user && !userError) {
-              // 3. El ajuste debe ser restar el monto que se está eliminando del historial
-              // Si el pago era de 5000, al borrarlo el socio tiene 5000 menos de crédito.
-              const newBalance = Number(user.account_balance) - Number(amount)
-              
-              await supabase
-                .from('users')
-                .update({ account_balance: newBalance })
-                .eq('id', userId)
-          }
+          if (userError || !user) throw new Error("No se pudo encontrar el usuario")
+
+          // 3. Calculamos el nuevo balance restando el monto UNA SOLA VEZ
+          // Importante: Usamos Number() para asegurar que no haya errores de tipo
+          const newBalance = Number(user.account_balance) - Number(amount)
+
+          const { error: updateError } = await supabase
+              .from('users')
+              .update({ account_balance: newBalance })
+              .eq('id', userId)
+
+          if (updateError) throw updateError
 
           setDeleteModal(null)
           fetchPayments()
       } catch (error) {
-          alert('Error al eliminar el registro y actualizar el balance.')
+          alert('Error al eliminar y ajustar saldo.')
       } finally {
           setIsDeleting(false)
       }
