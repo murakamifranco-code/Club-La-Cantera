@@ -65,22 +65,38 @@ export default function AdminPayments() {
     }
   }
 
+  // --- LÓGICA DE ELIMINACIÓN CORREGIDA PARA EVITAR DESCUENTO DUPLICADO ---
   const executeDelete = async () => {
       if (!deleteModal) return
       setIsDeleting(true)
       const { id, amount, userId } = deleteModal
       try {
+          // 1. Eliminamos el registro de pago primero
           const { error: deleteError } = await supabase.from('payments').delete().eq('id', id)
           if (deleteError) throw deleteError
-          const adjustment = -amount 
-          const { data: user } = await supabase.from('users').select('account_balance').eq('id', userId).single()
-          if (user) {
-              await supabase.from('users').update({ account_balance: user.account_balance + adjustment }).eq('id', userId)
+
+          // 2. Obtenemos el balance actual real directamente de la DB para evitar arrastrar errores
+          const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('account_balance')
+            .eq('id', userId)
+            .single()
+
+          if (user && !userError) {
+              // 3. El ajuste debe ser restar el monto que se está eliminando del historial
+              // Si el pago era de 5000, al borrarlo el socio tiene 5000 menos de crédito.
+              const newBalance = Number(user.account_balance) - Number(amount)
+              
+              await supabase
+                .from('users')
+                .update({ account_balance: newBalance })
+                .eq('id', userId)
           }
+
           setDeleteModal(null)
           fetchPayments()
       } catch (error) {
-          alert('Error al eliminar.')
+          alert('Error al eliminar el registro y actualizar el balance.')
       } finally {
           setIsDeleting(false)
       }
@@ -110,11 +126,8 @@ export default function AdminPayments() {
       return matchesSearch && matchesCategory && matchesGender
   })
 
-  // EXPORTACIÓN DEFINITIVA: Formato CSV con punto y coma (Estándar de Excel en Español)
   const exportToExcel = () => {
-      // Cabecera con punto y coma
       const headers = ['Fecha', 'Jugador', 'DNI', 'Detalle', 'Metodo', 'Monto'].join(';');
-      
       const rows = filteredPayments.map(p => {
           const user = Array.isArray(p.users) ? p.users[0] : p.users;
           const date = format(parseISO(p.date), 'dd/MM/yyyy');
@@ -122,17 +135,13 @@ export default function AdminPayments() {
           const category = p.category_snapshot || user?.category || '-';
           const name = user?.name || '';
           const dni = user?.dni || '';
-          // Limpiamos posibles comas en los nombres para no romper las columnas
           return [date, name.replace(/;/g, ''), dni, category, method, p.amount].join(';');
       }).join('\n');
-
       const content = headers + '\n' + rows;
-      // El BOM (\ufeff) ayuda a que Excel detecte los acentos correctamente
       const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      // Usamos extensión .csv para evitar alertas de seguridad de Excel
       link.download = `Planilla_Pagos_${format(new Date(), 'dd-MM-yyyy')}.csv`;
       link.click();
       URL.revokeObjectURL(url);
