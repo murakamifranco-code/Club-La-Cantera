@@ -232,7 +232,6 @@ export default function PlayersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div><h1 className="text-3xl font-bold tracking-tight text-gray-900">Socios</h1><p className="mt-2 text-gray-500">Gestión de socios del club.</p></div>
         <div className="flex gap-2">
-          {/* BOTON EXPORTAR EXCEL VERDE */}
           <button 
             onClick={exportToExcel} 
             className="inline-flex items-center justify-center rounded-md bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-green-700 transition"
@@ -255,24 +254,22 @@ export default function PlayersPage() {
             <span className="text-[10px] font-bold uppercase tracking-widest">Filtros</span>
           </div>
 
-          {/* FILTRO DE ESTADO ESTILO PAGOS */}
           <select 
             value={filterStatus} 
             onChange={(e) => setFilterStatus(e.target.value)}
             className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
           >
-            <option value="all">TODOS LOS ESTADOS</option>
+            <option value="all">estado</option>
             <option value="active">ACTIVOS</option>
             <option value="inactive">INACTIVOS</option>
           </select>
 
-          {/* FILTRO DE CATEGORÍA ESTILO PAGOS */}
           <select 
             value={filterCategory} 
             onChange={(e) => setFilterCategory(e.target.value)}
             className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
           >
-            <option value="all">TODAS LAS CATEGORÍAS</option>
+            <option value="all">categorias</option>
             <option value="Infantiles">INFANTILES</option>
             <option value="Menores">MENORES</option>
             <option value="Cadetes">CADETES</option>
@@ -280,13 +277,12 @@ export default function PlayersPage() {
             <option value="Mayores">MAYORES</option>
           </select>
 
-          {/* FILTRO DE SEXO ESTILO PAGOS */}
           <select 
             value={filterGender} 
             onChange={(e) => setFilterGender(e.target.value)}
             className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
           >
-            <option value="all">TODOS LOS SEXOS</option>
+            <option value="all">Sexo</option>
             <option value="male">MASCULINO</option>
             <option value="female">FEMENINO</option>
             <option value="other">OTRO</option>
