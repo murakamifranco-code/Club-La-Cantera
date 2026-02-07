@@ -23,8 +23,9 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   
-  // --- ÚNICO CAMBIO: ESTADO PARA EL FILTRO ---
+  // --- ESTADOS PARA FILTROS ---
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterCategory, setFilterCategory] = useState<string>('all')
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isStatementOpen, setIsStatementOpen] = useState(false)
@@ -188,7 +189,8 @@ export default function PlayersPage() {
   const filteredPlayers = players.filter(p => {
     const matchesSearch = (p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || (p.dni || "").includes(searchTerm)
     const matchesStatus = filterStatus === 'all' || p.status === filterStatus
-    return matchesSearch && matchesStatus
+    const matchesCategory = filterCategory === 'all' || getCategory(p.birth_date) === filterCategory
+    return matchesSearch && matchesStatus && matchesCategory
   })
 
   return (
@@ -204,8 +206,8 @@ export default function PlayersPage() {
           <input type="text" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 sm:text-sm" placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
         
-        {/* FILTRO DE ESTADO AÑADIDO */}
-        <div className="w-full md:w-48">
+        {/* FILTRO DE ESTADO */}
+        <div className="w-full md:w-40">
           <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 ml-1">Estado</label>
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Filter className="h-4 w-4 text-gray-400" /></div>
@@ -217,6 +219,26 @@ export default function PlayersPage() {
               <option value="all">Todos</option>
               <option value="active">Activos</option>
               <option value="inactive">Inactivos</option>
+            </select>
+          </div>
+        </div>
+
+        {/* FILTRO DE CATEGORÍA */}
+        <div className="w-full md:w-48">
+          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 ml-1">Categoría</label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Filter className="h-4 w-4 text-gray-400" /></div>
+            <select 
+              value={filterCategory} 
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm font-medium"
+            >
+              <option value="all">Todas</option>
+              <option value="Infantiles">Infantiles</option>
+              <option value="Menores">Menores</option>
+              <option value="Cadetes">Cadetes</option>
+              <option value="Juveniles">Juveniles</option>
+              <option value="Mayores">Mayores</option>
             </select>
           </div>
         </div>
@@ -307,7 +329,7 @@ export default function PlayersPage() {
         )}
       </div>
 
-      {/* MODALS (Sin cambios) */}
+      {/* MODALS - SE MANTIENEN IGUAL */}
       {isStatementOpen && selectedPlayerForStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
@@ -376,6 +398,7 @@ export default function PlayersPage() {
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition"><X size={20}/></button>
             </div>
             <form onSubmit={handleSave} className="p-5 space-y-5">
+              {/* ACCESO */}
               <div>
                   <div className="mb-2 border-b border-gray-200 pb-1 flex items-center gap-2">
                     <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><ShieldCheck size={14}/> Acceso</h3>
@@ -387,6 +410,7 @@ export default function PlayersPage() {
                     </div>
                   </div>
               </div>
+              {/* PERSONAL */}
               <div>
                   <div className="mb-2 border-b border-gray-200 pb-1 flex items-center gap-2">
                     <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><User size={14}/> Personal</h3>
@@ -427,6 +451,7 @@ export default function PlayersPage() {
                     </div>
                   </div>
               </div>
+              {/* SALUD */}
               <div className="p-4 bg-red-50 rounded-xl border border-red-100">
                 <div className="mb-2 border-b border-red-200 pb-1 flex items-center gap-2">
                   <h3 className="text-[10px] font-black text-red-700 uppercase tracking-widest flex items-center gap-2"><Shield size={14}/> Salud</h3>
