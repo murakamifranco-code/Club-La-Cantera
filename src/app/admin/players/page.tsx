@@ -214,7 +214,7 @@ export default function PlayersPage() {
       p.gender === 'male' ? 'Masculino' : p.gender === 'female' ? 'Femenino' : 'Otro',
       p.status === 'active' ? 'Activo' : 'Inactivo',
       p.account_balance || 0
-    ].join(';')); // Uso de punto y coma
+    ].join(';'));
 
     const csvContent = [headers.join(';'), ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -232,72 +232,65 @@ export default function PlayersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div><h1 className="text-3xl font-bold tracking-tight text-gray-900">Socios</h1><p className="mt-2 text-gray-500">Gestión de socios del club.</p></div>
         <div className="flex gap-2">
-          <button onClick={exportToExcel} className="inline-flex items-center justify-center rounded-md bg-white border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition"><Download className="mr-2 h-4 w-4" /> Exportar</button>
+          {/* BOTON EXPORTAR EXCEL VERDE */}
+          <button 
+            onClick={exportToExcel} 
+            className="inline-flex items-center justify-center rounded-md bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-green-700 transition"
+          >
+            <Download className="mr-2 h-4 w-4" /> Exportar Excel
+          </button>
           <button onClick={() => openModal()} className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"><UserPlus className="mr-2 h-4 w-4" /> Nuevo Socio</button>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4 items-end">
+      <div className="flex flex-col md:flex-row gap-4 items-end bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
         <div className="relative flex-1 w-full">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Search className="h-5 w-5 text-gray-400" /></div>
           <input type="text" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 sm:text-sm" placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
         
-        <div className="flex flex-wrap md:flex-nowrap gap-4 w-full lg:w-auto">
-          {/* FILTRO DE ESTADO */}
-          <div className="w-full md:w-32">
-            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 ml-1">Estado</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Filter className="h-4 w-4 text-gray-400" /></div>
-              <select 
-                value={filterStatus} 
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm font-medium bg-white"
-              >
-                <option value="all">Todos</option>
-                <option value="active">Activos</option>
-                <option value="inactive">Inactivos</option>
-              </select>
-            </div>
+        <div className="flex flex-wrap md:flex-nowrap gap-4 w-full lg:w-auto items-center">
+          <div className="flex items-center gap-2 text-gray-400">
+            <Filter size={14}/>
+            <span className="text-[10px] font-bold uppercase tracking-widest">Filtros</span>
           </div>
 
-          {/* FILTRO DE CATEGORÍA */}
-          <div className="w-full md:w-40">
-            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 ml-1">Categoría</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Filter className="h-4 w-4 text-gray-400" /></div>
-              <select 
-                value={filterCategory} 
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm font-medium bg-white"
-              >
-                <option value="all">Todas</option>
-                <option value="Infantiles">Infantiles</option>
-                <option value="Menores">Menores</option>
-                <option value="Cadetes">Cadetes</option>
-                <option value="Juveniles">Juveniles</option>
-                <option value="Mayores">Mayores</option>
-              </select>
-            </div>
-          </div>
+          {/* FILTRO DE ESTADO ESTILO PAGOS */}
+          <select 
+            value={filterStatus} 
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
+          >
+            <option value="all">TODOS LOS ESTADOS</option>
+            <option value="active">ACTIVOS</option>
+            <option value="inactive">INACTIVOS</option>
+          </select>
 
-          {/* FILTRO DE SEXO */}
-          <div className="w-full md:w-40">
-            <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 ml-1">Sexo</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Filter className="h-4 w-4 text-gray-400" /></div>
-              <select 
-                value={filterGender} 
-                onChange={(e) => setFilterGender(e.target.value)}
-                className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm font-medium bg-white"
-              >
-                <option value="all">Todos</option>
-                <option value="male">Masculino</option>
-                <option value="female">Femenino</option>
-                <option value="other">Otro</option>
-              </select>
-            </div>
-          </div>
+          {/* FILTRO DE CATEGORÍA ESTILO PAGOS */}
+          <select 
+            value={filterCategory} 
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
+          >
+            <option value="all">TODAS LAS CATEGORÍAS</option>
+            <option value="Infantiles">INFANTILES</option>
+            <option value="Menores">MENORES</option>
+            <option value="Cadetes">CADETES</option>
+            <option value="Juveniles">JUVENILES</option>
+            <option value="Mayores">MAYORES</option>
+          </select>
+
+          {/* FILTRO DE SEXO ESTILO PAGOS */}
+          <select 
+            value={filterGender} 
+            onChange={(e) => setFilterGender(e.target.value)}
+            className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
+          >
+            <option value="all">TODOS LOS SEXOS</option>
+            <option value="male">MASCULINO</option>
+            <option value="female">FEMENINO</option>
+            <option value="other">OTRO</option>
+          </select>
         </div>
       </div>
 
@@ -386,7 +379,7 @@ export default function PlayersPage() {
         )}
       </div>
 
-      {/* MODALS - SE MANTIENEN IGUAL */}
+      {/* MODALS */}
       {isStatementOpen && selectedPlayerForStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
