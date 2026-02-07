@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle } from 'lucide-react'
+import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle, Filter } from 'lucide-react'
 import { parseISO, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -23,6 +23,9 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   
+  // --- ÚNICO CAMBIO: ESTADO PARA EL FILTRO ---
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isStatementOpen, setIsStatementOpen] = useState(false)
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
@@ -181,7 +184,12 @@ export default function PlayersPage() {
     } catch (error: any) { alert('Error: ' + error.message) } finally { setIsSubmitting(false) }
   }
 
-  const filteredPlayers = players.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.dni?.includes(searchTerm))
+  // --- LÓGICA DE FILTRADO COMBINADA ---
+  const filteredPlayers = players.filter(p => {
+    const matchesSearch = (p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || (p.dni || "").includes(searchTerm)
+    const matchesStatus = filterStatus === 'all' || p.status === filterStatus
+    return matchesSearch && matchesStatus
+  })
 
   return (
     <div className="space-y-8">
@@ -189,7 +197,30 @@ export default function PlayersPage() {
         <div><h1 className="text-3xl font-bold tracking-tight text-gray-900">Socios</h1><p className="mt-2 text-gray-500">Gestión de socios del club.</p></div>
         <button onClick={() => openModal()} className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"><UserPlus className="mr-2 h-4 w-4" /> Nuevo Socio</button>
       </div>
-      <div className="relative"><div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Search className="h-5 w-5 text-gray-400" /></div><input type="text" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 sm:text-sm" placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+
+      <div className="flex flex-col md:flex-row gap-4 items-end">
+        <div className="relative flex-1 w-full">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Search className="h-5 w-5 text-gray-400" /></div>
+          <input type="text" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 sm:text-sm" placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        </div>
+        
+        {/* FILTRO DE ESTADO AÑADIDO */}
+        <div className="w-full md:w-48">
+          <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1 ml-1">Estado</label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Filter className="h-4 w-4 text-gray-400" /></div>
+            <select 
+              value={filterStatus} 
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-indigo-600 sm:text-sm font-medium"
+            >
+              <option value="all">Todos</option>
+              <option value="active">Activos</option>
+              <option value="inactive">Inactivos</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
       <div className="hidden md:block overflow-hidden rounded-lg bg-white shadow border border-gray-200">
         {loading ? ( <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div> ) : (
@@ -276,7 +307,7 @@ export default function PlayersPage() {
         )}
       </div>
 
-      {/* MODALS */}
+      {/* MODALS (Sin cambios) */}
       {isStatementOpen && selectedPlayerForStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
