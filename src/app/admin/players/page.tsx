@@ -64,7 +64,7 @@ export default function PlayersPage() {
         const dni = p?.dni || "";
         const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || dni.includes(searchTerm);
         
-        // Corregido: Comparación con minúsculas para coincidir con la base de datos
+        // Comparación corregida con valores en minúsculas de la DB
         const matchesStatus = filterStatus === 'all' || p?.status === filterStatus;
         const matchesGender = filterGender === 'all' || p?.gender === filterGender;
         
