@@ -99,6 +99,7 @@ export default function AdminFees() {
           const { error: insertError } = await supabase.from('payments').insert(records)
           if (insertError) throw insertError
 
+          // Actualización de saldos mediante bucle (se mantiene igual a tu código original)
           for (const p of players) {
               const currentBalance = p.account_balance || 0
               await supabase.from('users').update({ 
@@ -117,7 +118,7 @@ export default function AdminFees() {
       }
   }
 
-  // 2. DESHACER LOTE
+  // 2. DESHACER LOTE - CORREGIDO (Sin bucle manual, usa el Trigger de la DB)
   const executeDeleteBatch = async () => {
       const batchName = showDeleteModal.batchName
       if (!batchName) return
@@ -126,28 +127,15 @@ export default function AdminFees() {
       setShowDeleteModal({ show: false, batchName: null })
 
       try {
-          const { data: paymentsToDelete, error: searchError } = await supabase
+          // Eliminamos directamente los registros. 
+          // IMPORTANTE: El Trigger en Supabase devolverá el dinero automáticamente.
+          const { error: deleteError } = await supabase
             .from('payments')
-            .select('id, user_id, amount')
+            .delete()
             .eq('method', 'cuota')
             .eq('proof_url', batchName)
 
-          if (searchError) throw searchError
-          if (!paymentsToDelete || paymentsToDelete.length === 0) throw new Error("No se encontraron registros.")
-
-          for (const p of paymentsToDelete) {
-              const { data: user } = await supabase.from('users').select('account_balance').eq('id', p.user_id).single()
-              if (user) {
-                  const currentBalance = user.account_balance || 0
-                  const refund = Math.abs(p.amount)
-                  await supabase.from('users').update({
-                      account_balance: currentBalance + refund
-                  }).eq('id', p.user_id)
-              }
-          }
-
-          const idsToDelete = paymentsToDelete.map(p => p.id)
-          await supabase.from('payments').delete().in('id', idsToDelete)
+          if (deleteError) throw deleteError
 
           showToast(`Lote "${batchName}" eliminado y saldos restaurados.`, 'success')
           fetchFeeBatches()
@@ -175,17 +163,15 @@ export default function AdminFees() {
           const amountVal = parseFloat(manualAmount)
           const finalAmount = manualType === 'debt' ? -amountVal : amountVal
           
-          // --- AQUÍ ESTÁ EL CAMBIO IMPORTANTE ---
           const { error: insertError } = await supabase.from('payments').insert({
               user_id: manualUser.id,
               amount: finalAmount,
               method: 'adjustment',
               date: new Date().toISOString(),
               status: 'completed',
-              notes: manualNote, // GUARDAMOS EL TEXTO EN 'NOTES'
-              proof_url: null    // Ajustes no llevan archivo
+              notes: manualNote,
+              proof_url: null
           })
-          // --------------------------------------
 
           if (insertError) throw insertError
 
@@ -203,8 +189,7 @@ export default function AdminFees() {
 
   return (
     <div className="space-y-6 min-h-screen pb-10 font-sans">
-      
-      {/* --- HEADER --- */}
+      {/* ... (El resto del JSX se mantiene idéntico) ... */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">
             Gestión de Cuotas
@@ -221,9 +206,7 @@ export default function AdminFees() {
 
       {activeTab === 'massive' ? (
           <div className="space-y-8 animate-in fade-in">
-              {/* TARJETA DE GENERACIÓN */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-3xl relative overflow-hidden">
-                  
                   <div className="flex items-center gap-4 mb-6 p-4 bg-red-50 text-red-800 rounded-lg border border-red-100">
                       <div className="bg-white p-2 rounded-full shadow-sm"><Users size={20} className="text-red-500"/></div>
                       <div>
@@ -271,7 +254,6 @@ export default function AdminFees() {
                   </form>
               </div>
 
-              {/* HISTORIAL */}
               <div className="max-w-3xl">
                   <h3 className="font-bold text-gray-800 text-sm uppercase mb-4 flex items-center gap-2"><History size={18}/> Historial de Lotes</h3>
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -307,7 +289,6 @@ export default function AdminFees() {
               </div>
           </div>
       ) : (
-          // MANUAL
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-3xl animate-in fade-in">
               <div className="flex items-center gap-4 mb-6 p-4 bg-blue-50 text-blue-800 rounded-lg border border-blue-100">
                   <div className="bg-white p-2 rounded-full shadow-sm"><Info size={20} className="text-blue-500"/></div>
@@ -352,7 +333,7 @@ export default function AdminFees() {
           </div>
       )}
 
-      {/* --- MODALES PERSONALIZADOS --- */}
+      {/* MODALES Y NOTIFICACIÓN (SIN CAMBIOS) */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
             <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full animate-in zoom-in-95 relative overflow-hidden">
