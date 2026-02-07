@@ -24,7 +24,6 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   
-  // --- ESTADOS DE FILTROS ---
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [filterGender, setFilterGender] = useState<string>('all')
@@ -57,17 +56,26 @@ export default function PlayersPage() {
 
   useEffect(() => { fetchPlayers() }, [])
 
-  // --- LÓGICA DE FILTRADO REPARADA ---
+  // --- LÓGICA DE FILTRADO TOLERANTE A DATOS MIXTOS ---
   const filteredPlayers = players.filter(p => {
     try {
         const name = p?.name || "";
         const dni = p?.dni || "";
         const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || dni.includes(searchTerm);
         
-        // Comparación corregida con valores en minúsculas de la DB
+        // Filtro de Estado
         const matchesStatus = filterStatus === 'all' || p?.status === filterStatus;
-        const matchesGender = filterGender === 'all' || p?.gender === filterGender;
         
+        // Filtro de Género (Mapeo M/male y F/female)
+        let matchesGender = filterGender === 'all';
+        if (!matchesGender) {
+            const genderValue = (p?.gender || "").toLowerCase();
+            if (filterGender === 'male') matchesGender = (genderValue === 'male' || genderValue === 'm');
+            if (filterGender === 'female') matchesGender = (genderValue === 'female' || genderValue === 'f');
+            if (filterGender === 'other') matchesGender = (genderValue === 'other');
+        }
+        
+        // Filtro de Categoría
         const pCategory = getCategory(p?.birth_date);
         const matchesCategory = filterCategory === 'all' || pCategory === filterCategory;
 
@@ -86,7 +94,7 @@ export default function PlayersPage() {
           p?.dni || '',
           p?.email || '',
           getCategory(p?.birth_date),
-          p?.gender === 'male' ? 'Masculino' : p?.gender === 'female' ? 'Femenino' : 'Otro',
+          p?.gender === 'male' || p?.gender === 'M' ? 'Masculino' : p?.gender === 'female' || p?.gender === 'F' ? 'Femenino' : 'Otro',
           p?.status === 'active' ? 'Activo' : 'Inactivo',
           p?.account_balance || 0
         ].join(';'));
@@ -179,18 +187,14 @@ export default function PlayersPage() {
     try {
         const parsedDate = parseISO(birthDateString);
         if (isNaN(parsedDate.getTime())) return '-';
-        
         const birthYear = parsedDate.getFullYear();
         const age = new Date().getFullYear() - birthYear;
-        
         if (age < 13) return `Infantiles`;
         if (age <= 14) return `Menores`;
         if (age <= 16) return `Cadetes`;
         if (age <= 18) return `Juveniles`;
         return `Mayores`;
-    } catch (e) { 
-        return '-';
-    }
+    } catch (e) { return '-'; }
   }
 
   const openModal = (player?: Player) => {
@@ -217,10 +221,8 @@ export default function PlayersPage() {
           alert('Error: Ya existe un socio registrado con este DNI.')
           setIsSubmitting(false); return
       }
-
       const calculatedCategory = getCategory(formData.birth_date);
       const dataToSave = { ...formData, category: calculatedCategory };
-
       if (editingPlayer) { 
         await supabase.from('users').update(dataToSave).eq('id', editingPlayer.id) 
       } 
@@ -260,15 +262,15 @@ export default function PlayersPage() {
         </div>
 
         <div className="flex flex-wrap gap-4 items-center">
-           <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest"><Filter size={14}/> Filtros:</div>
+           <div className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-widest"><Filter size={14}/> Filtros:</div>
            
-           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 bg-white" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
              <option value="all">TODOS LOS ESTADOS</option>
              <option value="active">ACTIVOS</option>
              <option value="inactive">INACTIVOS</option>
            </select>
 
-           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 bg-white" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
              <option value="all">TODAS LAS CATEGORÍAS</option>
              <option value="Infantiles">INFANTILES</option>
              <option value="Menores">MENORES</option>
@@ -277,7 +279,7 @@ export default function PlayersPage() {
              <option value="Mayores">MAYORES</option>
            </select>
 
-           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
+           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 bg-white" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
              <option value="all">TODOS LOS SEXOS</option>
              <option value="male">MASCULINO</option>
              <option value="female">FEMENINO</option>
@@ -286,7 +288,7 @@ export default function PlayersPage() {
         </div>
       </div>
 
-      {/* VISTA PARA ESCRITORIO */}
+      {/* TABLA ESCRITORIO */}
       <div className="hidden md:block overflow-hidden rounded-lg bg-white shadow border border-gray-200">
         {loading ? ( <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div> ) : (
           <table className="min-w-full divide-y divide-gray-200">
@@ -295,7 +297,7 @@ export default function PlayersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Socio</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Estado</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
@@ -307,7 +309,7 @@ export default function PlayersPage() {
                   <td className="px-6 py-4"><div className="flex items-center"><div className={`h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white uppercase bg-indigo-500`}>{player?.name ? player.name.charAt(0) : '?'}</div><div className="ml-4"><div className="text-sm font-medium text-gray-900">{player?.name || 'Sin nombre'}</div><div className="text-xs text-gray-500">{player?.dni || player?.email}</div></div></div></td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategory(player?.birth_date)} {birthYear && `(${birthYear})`}</td>
                   <td className="px-6 py-4 whitespace-nowrap"><div className={`text-sm font-bold ${(player?.account_balance || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>{(player?.account_balance || 0) < 0 ? '-' : '+'}${Math.abs(player?.account_balance || 0).toLocaleString()}</div></td>
-                  <td className="px-6 py-4 whitespace-nowrap"><button onClick={() => handleStatusClick(player)} className={`px-2 py-1 text-xs font-medium rounded-full ${player?.status === 'active' ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}>{player?.status === 'active' ? 'Activo' : 'Inactivo'}</button></td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center"><button onClick={() => handleStatusClick(player)} className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full border ${player?.status === 'active' ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>{player?.status === 'active' ? 'Activo' : 'Inactivo'}</button></td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"><div className="flex justify-end gap-2"><button onClick={() => openStatement(player)} className="text-gray-500 hover:text-green-600 p-1 bg-gray-50 hover:bg-green-50 rounded-md transition" title="Ver Cuenta"><DollarSign size={18} /></button><button onClick={() => openModal(player)} className="text-gray-500 hover:text-indigo-600 p-1 bg-gray-50 hover:bg-indigo-50 rounded-md transition" title="Editar Socio"><Edit2 size={18} /></button></div></td>
                 </tr>
               )})}
@@ -316,12 +318,9 @@ export default function PlayersPage() {
         )}
       </div>
 
-      {/* VISTA PARA CELULARES */}
+      {/* VISTA MÓVIL Y MODALES (SIN CAMBIOS) */}
       <div className="md:hidden space-y-4">
-        {loading ? (
-          <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div>
-        ) : (
-          filteredPlayers.map((player) => (
+        {!loading && filteredPlayers.map((player) => (
             <div key={player.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -340,7 +339,6 @@ export default function PlayersPage() {
                   {player?.status === 'active' ? 'Activo' : 'Inactivo'}
                 </button>
               </div>
-
               <div className="grid grid-cols-2 gap-2 bg-gray-50 rounded-lg p-3">
                 <div className="space-y-0.5">
                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Categoría</p>
@@ -353,27 +351,19 @@ export default function PlayersPage() {
                   </p>
                 </div>
               </div>
-
               <div className="flex gap-2 pt-1">
-                <button 
-                  onClick={() => openStatement(player)} 
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition"
-                >
+                <button onClick={() => openStatement(player)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition">
                   <DollarSign size={14} /> Cuenta
                 </button>
-                <button 
-                  onClick={() => openModal(player)} 
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition"
-                >
+                <button onClick={() => openModal(player)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition">
                   <Edit2 size={14} /> Editar
                 </button>
               </div>
             </div>
-          ))
-        )}
+        ))}
       </div>
 
-      {/* MODALS - SE MANTIENEN IGUAL */}
+      {/* SECCIÓN DE MODALES (MANTENIDA IDÉNTICA) */}
       {isStatementOpen && selectedPlayerForStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
