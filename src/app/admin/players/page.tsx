@@ -24,7 +24,7 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   
-  // --- NUEVOS ESTADOS DE FILTROS ---
+  // --- ESTADOS DE FILTROS ---
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [filterGender, setFilterGender] = useState<string>('all')
@@ -57,13 +57,15 @@ export default function PlayersPage() {
 
   useEffect(() => { fetchPlayers() }, [])
 
-  // --- LÓGICA DE FILTRADO COMBINADA ---
+  // --- LÓGICA DE FILTRADO BLINDADA (Corrección del error de cliente) ---
   const filteredPlayers = players.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.dni?.includes(searchTerm);
+    const name = p.name || "";
+    const dni = p.dni || "";
+    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || dni.includes(searchTerm);
+    
     const matchesStatus = filterStatus === 'all' || p.status === filterStatus;
     const matchesGender = filterGender === 'all' || p.gender === filterGender;
     
-    // Para categoría comparamos con el resultado de la función getCategory
     const pCategory = getCategory(p.birth_date);
     const matchesCategory = filterCategory === 'all' || pCategory === filterCategory;
 
@@ -74,13 +76,13 @@ export default function PlayersPage() {
   const downloadExcel = () => {
     const headers = ['Nombre', 'DNI', 'Email', 'Categoria', 'Sexo', 'Estado', 'Saldo'];
     const rows = filteredPlayers.map(p => [
-      p.name,
+      p.name || '',
       p.dni || '',
-      p.email,
+      p.email || '',
       getCategory(p.birth_date),
       p.gender === 'male' ? 'Masculino' : p.gender === 'female' ? 'Femenino' : 'Otro',
       p.status === 'active' ? 'Activo' : 'Inactivo',
-      p.account_balance
+      p.account_balance || 0
     ].join(';'));
 
     const csvContent = [headers.join(';'), ...rows].join('\n');
@@ -165,13 +167,15 @@ export default function PlayersPage() {
 
   const getCategory = (birthDateString?: string) => {
     if (!birthDateString) return '-'
-    const birthYear = parseISO(birthDateString).getFullYear()
-    const age = new Date().getFullYear() - birthYear 
-    if (age < 13) return `Infantiles`
-    if (age <= 14) return `Menores`
-    if (age <= 16) return `Cadetes`
-    if (age <= 18) return `Juveniles`
-    return `Mayores`
+    try {
+        const birthYear = parseISO(birthDateString).getFullYear()
+        const age = new Date().getFullYear() - birthYear 
+        if (age < 13) return `Infantiles`
+        if (age <= 14) return `Menores`
+        if (age <= 16) return `Cadetes`
+        if (age <= 18) return `Juveniles`
+        return `Mayores`
+    } catch (e) { return '-' }
   }
 
   const openModal = (player?: Player) => {
@@ -307,7 +311,7 @@ export default function PlayersPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="h-12 w-12 rounded-full flex items-center justify-center font-bold text-white uppercase bg-indigo-500 text-lg shadow-sm">
-                    {player.name.charAt(0)}
+                    {player.name ? player.name.charAt(0) : '?'}
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-gray-900 leading-tight">{player.name}</h3>
@@ -415,6 +419,7 @@ export default function PlayersPage() {
          </div>
       )}
 
+      {/* EL RESTO DE MODALES SE MANTIENEN IGUAL (Nuevo/Editar Socio, etc) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl overflow-hidden border border-gray-100">
