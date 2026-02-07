@@ -1,5 +1,4 @@
 'use client'
-
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
 import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle, Filter, Download } from 'lucide-react'
@@ -24,6 +23,7 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   
+  // ESTADOS DE FILTROS
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterCategory, setFilterCategory] = useState<string>('all')
   const [filterGender, setFilterGender] = useState<string>('all')
@@ -51,67 +51,42 @@ export default function PlayersPage() {
       const { data, error } = await supabase.from('users').select('*').eq('role', 'player').order('name', { ascending: true })
       if (error) throw error
       setPlayers(data || [])
-    } catch (error) { console.error('Error fetching players:', error) } finally { setLoading(false) }
+    } catch (error) { console.error('Error:', error) } finally { setLoading(false) }
   }
 
   useEffect(() => { fetchPlayers() }, [])
 
-  // --- LÓGICA DE FILTRADO REPARADA ---
+  // --- LÓGICA DE FILTRADO ARREGLADA ---
   const filteredPlayers = players.filter(p => {
-    try {
-        const name = (p?.name || "").toLowerCase();
-        const dni = p?.dni || "";
-        const matchesSearch = name.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm);
-        
-        // Filtro Estado (Case Insensitive)
-        const playerStatus = (p?.status || "").toLowerCase();
-        const matchesStatus = filterStatus === 'all' || playerStatus === filterStatus.toLowerCase();
-        
-        // Filtro Género (Soporta M/male y F/female)
-        const playerGender = (p?.gender || "").toLowerCase();
-        let matchesGender = filterGender === 'all';
-        if (!matchesGender) {
-            if (filterGender === 'male') matchesGender = (playerGender === 'male' || playerGender === 'm');
-            if (filterGender === 'female') matchesGender = (playerGender === 'female' || playerGender === 'f');
-            if (filterGender === 'other') matchesGender = (playerGender === 'other');
-        }
-        
-        // Filtro Categoría
-        const pCategory = getCategory(p?.birth_date);
-        const matchesCategory = filterCategory === 'all' || pCategory === filterCategory;
+    const nameMatch = (p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || (p.dni || "").includes(searchTerm);
+    const statusMatch = filterStatus === 'all' || p.status === filterStatus;
+    
+    // Filtro de Género: Soporta 'M'/'male' y 'F'/'female'
+    const dbGender = (p.gender || "").toLowerCase();
+    let genderMatch = filterGender === 'all';
+    if (filterGender === 'male') genderMatch = dbGender === 'male' || dbGender === 'm';
+    if (filterGender === 'female') genderMatch = dbGender === 'female' || dbGender === 'f';
 
-        return matchesSearch && matchesStatus && matchesGender && matchesCategory;
-    } catch (err) {
-        return false;
-    }
+    // Filtro de Categoría
+    const pCategory = getCategory(p.birth_date);
+    const categoryMatch = filterCategory === 'all' || pCategory === filterCategory;
+
+    return nameMatch && statusMatch && genderMatch && categoryMatch;
   })
 
-  // --- FUNCIÓN EXCEL (CSV con ;) ---
+  // --- EXCEL (CSV con ;) ---
   const downloadExcel = () => {
-    try {
-        const headers = ['Nombre', 'DNI', 'Email', 'Categoria', 'Sexo', 'Estado', 'Saldo'];
-        const rows = filteredPlayers.map(p => [
-          p?.name || '',
-          p?.dni || '',
-          p?.email || '',
-          getCategory(p?.birth_date),
-          (p?.gender || "").toLowerCase().startsWith('m') ? 'Masculino' : (p?.gender || "").toLowerCase().startsWith('f') ? 'Femenino' : 'Otro',
-          p?.status === 'active' ? 'Activo' : 'Inactivo',
-          p?.account_balance || 0
-        ].join(';'));
-
-        const csvContent = [headers.join(';'), ...rows].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `socios_la_cantera_${new Date().toLocaleDateString()}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    } catch (err) {
-        alert("Error al generar el Excel");
-    }
+    const headers = ['Nombre', 'DNI', 'Categoria', 'Sexo', 'Estado', 'Saldo'];
+    const rows = filteredPlayers.map(p => [
+      p.name, p.dni || '', getCategory(p.birth_date), 
+      p.gender, p.status, p.account_balance
+    ].join(';'));
+    const csvContent = [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'socios.csv');
+    link.click();
   }
 
   const handleStatusClick = (player: Player) => {
@@ -136,69 +111,41 @@ export default function PlayersPage() {
       setSelectedPlayerForStatement(player)
       setIsStatementOpen(true)
       setPlayerTransactions([])
-      
-      const { data: paymentsData } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('user_id', player.id)
-        .or('status.eq.approved,status.eq.completed,method.eq.adjustment,method.eq.cuota')
-
+      const { data: paymentsData } = await supabase.from('payments').select('*').eq('user_id', player.id).or('status.eq.approved,status.eq.completed,method.eq.adjustment,method.eq.cuota')
       const transactions: Transaction[] = []
-      
       paymentsData?.forEach(p => {
           if (p.method === 'adjustment') {
-              transactions.push({
-                  id: p.id, type: 'adjustment', amount: p.amount, 
-                  date: p.date || p.created_at, description: 'Ajuste Administrativo', notes: p.notes 
-              })
-          } 
-          else if (p.method === 'cuota') {
+              transactions.push({ id: p.id, type: 'adjustment', amount: p.amount, date: p.date || p.created_at, description: 'Ajuste Administrativo', notes: p.notes })
+          } else if (p.method === 'cuota') {
               const monthLabel = p.proof_url || '';
-              transactions.push({
-                  id: p.id, type: 'fee', amount: p.amount, 
-                  date: p.date || p.created_at, description: monthLabel.toLowerCase().includes('cuota') ? monthLabel : `Cuota Mensual ${monthLabel}`
-              })
-          }
-          else {
+              transactions.push({ id: p.id, type: 'fee', amount: p.amount, date: p.date || p.created_at, description: monthLabel.toLowerCase().includes('cuota') ? monthLabel : `Cuota Mensual ${monthLabel}` })
+          } else {
               const isCash = !p.proof_url || p.payment_method === 'cash' || p.payment_method === 'efectivo';
-              transactions.push({
-                  id: p.id, type: 'payment', amount: p.amount, 
-                  date: p.date || p.created_at, description: isCash ? 'Pago (efectivo)' : 'Pago (transferencia)'
-              })
+              transactions.push({ id: p.id, type: 'payment', amount: p.amount, date: p.date || p.created_at, description: isCash ? 'Pago (efectivo)' : 'Pago (transferencia)' })
           }
       })
-      
       transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       setPlayerTransactions(transactions)
   }
 
   const getCategory = (birthDateString?: string) => {
-    if (!birthDateString || birthDateString === "") return '-'
-    try {
-        const parsedDate = parseISO(birthDateString);
-        if (isNaN(parsedDate.getTime())) return '-';
-        const birthYear = parsedDate.getFullYear();
-        const age = new Date().getFullYear() - birthYear;
-        if (age < 13) return `Infantiles`;
-        if (age <= 14) return `Menores`;
-        if (age <= 16) return `Cadetes`;
-        if (age <= 18) return `Juveniles`;
-        return `Mayores`;
-    } catch (e) { return '-'; }
+    if (!birthDateString) return '-'
+    const birthYear = parseISO(birthDateString).getFullYear()
+    const age = new Date().getFullYear() - birthYear
+    if (age < 13) return `Infantiles`
+    if (age <= 14) return `Menores`
+    if (age <= 16) return `Cadetes`
+    if (age <= 18) return `Juveniles`
+    return `Mayores`
   }
 
   const openModal = (player?: Player) => {
-    if (player) { 
+    if (player) {
       setEditingPlayer(player)
-      setFormData({ 
-        name: player.name || '', email: player.email || '', dni: player.dni || '', 
-        phone: player.phone || '', address: player.address || '', birth_date: player.birth_date || '', 
-        gender: player.gender || '', medical_notes: player.medical_notes || '', 
-        emergency_contact: player.emergency_contact || '', emergency_contact_name: player.emergency_contact_name || '' 
-      })
-    } else { 
+      setFormData({ name: player.name || '', email: player.email || '', dni: player.dni || '', phone: player.phone || '', address: player.address || '', birth_date: player.birth_date || '', gender: player.gender || '', medical_notes: player.medical_notes || '', emergency_contact: player.emergency_contact || '', emergency_contact_name: player.emergency_contact_name || '' })
+    } else {
       setEditingPlayer(null)
-      setFormData({ name: '', email: '', dni: '', phone: '', address: '', birth_date: '', gender: '', medical_notes: '', emergency_contact: '', emergency_contact_name: '' }) 
+      setFormData({ name: '', email: '', dni: '', phone: '', address: '', birth_date: '', gender: '', medical_notes: '', emergency_contact: '', emergency_contact_name: '' })
     }
     setIsModalOpen(true)
   }
@@ -207,26 +154,15 @@ export default function PlayersPage() {
     e.preventDefault(); setIsSubmitting(true)
     try {
       const { data: existingDni } = await supabase.from('users').select('id').eq('dni', formData.dni).neq('id', editingPlayer?.id || '').maybeSingle()
-      if (existingDni) {
-          alert('Error: Ya existe un socio registrado con este DNI.')
-          setIsSubmitting(false); return
-      }
+      if (existingDni) { alert('Error: Ya existe un socio registrado con este DNI.'); setIsSubmitting(false); return }
       const calculatedCategory = getCategory(formData.birth_date);
       const dataToSave = { ...formData, category: calculatedCategory };
       if (editingPlayer) { 
-        await supabase.from('users').update(dataToSave).eq('id', editingPlayer.id) 
-      } 
-      else { 
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: formData.email, password: formData.dni,
-            options: { data: { full_name: formData.name, dni: formData.dni, role: 'player' } }
-        })
+        await supabase.from('users').update(dataToSave).eq('id', editingPlayer.id)
+      } else {
+        const { data: authData, error: authError } = await supabase.auth.signUp({ email: formData.email, password: formData.dni, options: { data: { full_name: formData.name, dni: formData.dni, role: 'player' } } })
         if (authError) throw authError
-        if (authData.user) {
-            await supabase.from('users').insert({ 
-                ...dataToSave, id: authData.user.id, role: 'player', status: 'active', account_balance: 0
-            })
-        }
+        if (authData.user) { await supabase.from('users').insert({ ...dataToSave, id: authData.user.id, role: 'player', status: 'active', account_balance: 0 }) }
       }
       setIsModalOpen(false); fetchPlayers()
     } catch (error: any) { alert('Error: ' + error.message) } finally { setIsSubmitting(false) }
@@ -251,13 +187,13 @@ export default function PlayersPage() {
         <div className="flex flex-wrap gap-4 items-center">
            <div className="flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-widest"><Filter size={14}/> Filtros:</div>
            
-           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 bg-white" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+           <select className="text-xs font-bold border-gray-300 rounded-md text-gray-900 bg-white" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
              <option value="all">TODOS LOS ESTADOS</option>
              <option value="active">ACTIVOS</option>
              <option value="inactive">INACTIVOS</option>
            </select>
 
-           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 bg-white" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+           <select className="text-xs font-bold border-gray-300 rounded-md text-gray-900 bg-white" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
              <option value="all">TODAS LAS CATEGORÍAS</option>
              <option value="Infantiles">INFANTILES</option>
              <option value="Menores">MENORES</option>
@@ -266,11 +202,10 @@ export default function PlayersPage() {
              <option value="Mayores">MAYORES</option>
            </select>
 
-           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 bg-white" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
+           <select className="text-xs font-bold border-gray-300 rounded-md text-gray-900 bg-white" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
              <option value="all">TODOS LOS SEXOS</option>
              <option value="male">MASCULINO</option>
              <option value="female">FEMENINO</option>
-             <option value="other">OTRO</option>
            </select>
         </div>
       </div>
@@ -283,19 +218,19 @@ export default function PlayersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Socio</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider text-center">Estado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredPlayers.map((player) => {
-                const birthYear = player?.birth_date ? parseISO(player.birth_date).getFullYear() : '';
+                const birthYear = player.birth_date ? parseISO(player.birth_date).getFullYear() : '';
                 return (
                 <tr key={player.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4"><div className="flex items-center"><div className={`h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white uppercase bg-indigo-500`}>{player?.name ? player.name.charAt(0) : '?'}</div><div className="ml-4"><div className="text-sm font-medium text-gray-900">{player?.name || 'Sin nombre'}</div><div className="text-xs text-gray-500">{player?.dni || player?.email}</div></div></div></td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategory(player?.birth_date)} {birthYear && `(${birthYear})`}</td>
-                  <td className="px-6 py-4 whitespace-nowrap"><div className={`text-sm font-bold ${(player?.account_balance || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>{(player?.account_balance || 0) < 0 ? '-' : '+'}${Math.abs(player?.account_balance || 0).toLocaleString()}</div></td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center"><button onClick={() => handleStatusClick(player)} className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full border ${player?.status === 'active' ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>{player?.status === 'active' ? 'Activo' : 'Inactivo'}</button></td>
+                  <td className="px-6 py-4"><div className="flex items-center"><div className={`h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white uppercase bg-indigo-500`}>{player.name.charAt(0)}</div><div className="ml-4"><div className="text-sm font-medium text-gray-900">{player.name}</div><div className="text-xs text-gray-500">{player.dni || player.email}</div></div></div></td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategory(player.birth_date)} {birthYear && `(${birthYear})`}</td>
+                  <td className="px-6 py-4 whitespace-nowrap"><div className={`text-sm font-bold ${player.account_balance < 0 ? 'text-red-600' : 'text-green-600'}`}>{player.account_balance < 0 ? '-' : '+'}${Math.abs(player.account_balance).toLocaleString()}</div></td>
+                  <td className="px-6 py-4 whitespace-nowrap"><button onClick={() => handleStatusClick(player)} className={`px-2 py-1 text-xs font-medium rounded-full ${player.status === 'active' ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}>{player.status === 'active' ? 'Activo' : 'Inactivo'}</button></td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"><div className="flex justify-end gap-2"><button onClick={() => openStatement(player)} className="text-gray-500 hover:text-green-600 p-1 bg-gray-50 hover:bg-green-50 rounded-md transition" title="Ver Cuenta"><DollarSign size={18} /></button><button onClick={() => openModal(player)} className="text-gray-500 hover:text-indigo-600 p-1 bg-gray-50 hover:bg-indigo-50 rounded-md transition" title="Editar Socio"><Edit2 size={18} /></button></div></td>
                 </tr>
               )})}
@@ -304,33 +239,32 @@ export default function PlayersPage() {
         )}
       </div>
 
+      {/* VISTA PARA CELULARES */}
       <div className="md:hidden space-y-4">
-        {!loading && filteredPlayers.map((player) => (
+        {loading ? ( <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div> ) : (
+          filteredPlayers.map((player) => (
             <div key={player.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full flex items-center justify-center font-bold text-white uppercase bg-indigo-500 text-lg shadow-sm">
-                    {player?.name ? player.name.charAt(0) : '?'}
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 leading-tight">{player?.name || 'Sin nombre'}</h3>
-                    <p className="text-[11px] text-gray-500 font-medium uppercase tracking-tighter">{player?.dni || 'SIN DNI'}</p>
-                  </div>
+                  <div className="h-12 w-12 rounded-full flex items-center justify-center font-bold text-white uppercase bg-indigo-500 text-lg shadow-sm">{player.name.charAt(0)}</div>
+                  <div><h3 className="text-sm font-bold text-gray-900 leading-tight">{player.name}</h3><p className="text-[11px] text-gray-500 font-medium uppercase tracking-tighter">{player.dni || 'SIN DNI'}</p></div>
                 </div>
-                <button onClick={() => handleStatusClick(player)} className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm border ${player?.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{player?.status === 'active' ? 'Activo' : 'Inactivo'}</button>
+                <button onClick={() => handleStatusClick(player)} className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm border ${player.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{player.status === 'active' ? 'Activo' : 'Inactivo'}</button>
               </div>
               <div className="grid grid-cols-2 gap-2 bg-gray-50 rounded-lg p-3">
-                <div className="space-y-0.5"><p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Categoría</p><p className="text-xs font-bold text-gray-700">{getCategory(player?.birth_date)}</p></div>
-                <div className="space-y-0.5 text-right"><p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Saldo</p><p className={`text-xs font-black ${(player?.account_balance || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>{(player?.account_balance || 0) < 0 ? '-' : '+'}${Math.abs(player?.account_balance || 0).toLocaleString()}</p></div>
+                <div className="space-y-0.5"><p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Categoría</p><p className="text-xs font-bold text-gray-700">{getCategory(player.birth_date)}</p></div>
+                <div className="space-y-0.5 text-right"><p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Saldo</p><p className={`text-xs font-black ${player.account_balance < 0 ? 'text-red-600' : 'text-green-600'}`}>{player.account_balance < 0 ? '-' : '+'}${Math.abs(player.account_balance).toLocaleString()}</p></div>
               </div>
               <div className="flex gap-2 pt-1">
                 <button onClick={() => openStatement(player)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition"><DollarSign size={14} /> Cuenta</button>
                 <button onClick={() => openModal(player)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition"><Edit2 size={14} /> Editar</button>
               </div>
             </div>
-        ))}
+          ))
+        )}
       </div>
 
+      {/* MODALS (IDÉNTICOS) */}
       {isStatementOpen && selectedPlayerForStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
@@ -350,7 +284,11 @@ export default function PlayersPage() {
                                     <div className={`p-2 rounded-full ${t.type === 'payment' ? 'bg-green-100 text-green-600' : (t.type === 'adjustment' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600')}`}>
                                         {t.type === 'payment' ? <ArrowUpCircle size={20}/> : (t.type === 'adjustment' ? <FileText size={20}/> : <ArrowDownCircle size={20}/>)}
                                     </div>
-                                    <div><p className="font-bold text-sm text-gray-900">{t.description}</p>{t.type === 'adjustment' && t.notes && (<p className="text-[10px] text-gray-400 italic uppercase font-medium">{t.notes}</p>)}<p className="text-xs text-gray-400">{format(parseISO(t.date), 'dd/MM/yyyy')}</p></div>
+                                    <div>
+                                        <p className="font-bold text-sm text-gray-900">{t.description}</p>
+                                        {t.type === 'adjustment' && t.notes && ( <p className="text-[10px] text-gray-400 italic uppercase font-medium">{t.notes}</p> )}
+                                        <p className="text-xs text-gray-400">{format(parseISO(t.date), 'dd/MM/yyyy')}</p>
+                                    </div>
                                 </div>
                                 <span className={`font-black text-sm ${t.type === 'adjustment' ? 'text-blue-600' : t.type === 'fee' ? 'text-red-600' : 'text-green-600'}`}>{t.amount < 0 ? '-' : '+'}${Math.abs(t.amount).toLocaleString()}</span>
                             </div>
