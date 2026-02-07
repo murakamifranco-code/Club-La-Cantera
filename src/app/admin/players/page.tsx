@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle, Filter } from 'lucide-react'
+import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle, Filter, Download } from 'lucide-react'
 import { parseISO, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -192,7 +192,6 @@ export default function PlayersPage() {
     const matchesStatus = filterStatus === 'all' || p.status === filterStatus
     const matchesCategory = filterCategory === 'all' || getCategory(p.birth_date) === filterCategory
     
-    // Lógica para soportar datos mezclados en Sexo (M/male, F/female)
     let matchesGender = filterGender === 'all'
     if (!matchesGender) {
         const dbGender = (p.gender || "").toLowerCase()
@@ -204,11 +203,38 @@ export default function PlayersPage() {
     return matchesSearch && matchesStatus && matchesCategory && matchesGender
   })
 
+  // --- LÓGICA DE EXPORTACIÓN EXCEL (CON ;) ---
+  const exportToExcel = () => {
+    const headers = ['Nombre', 'DNI', 'Email', 'Categoria', 'Sexo', 'Estado', 'Saldo'];
+    const rows = filteredPlayers.map(p => [
+      p.name || '',
+      p.dni || '',
+      p.email || '',
+      getCategory(p.birth_date),
+      p.gender === 'male' ? 'Masculino' : p.gender === 'female' ? 'Femenino' : 'Otro',
+      p.status === 'active' ? 'Activo' : 'Inactivo',
+      p.account_balance || 0
+    ].join(';')); // Uso de punto y coma
+
+    const csvContent = [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `socios_la_cantera_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div><h1 className="text-3xl font-bold tracking-tight text-gray-900">Socios</h1><p className="mt-2 text-gray-500">Gestión de socios del club.</p></div>
-        <button onClick={() => openModal()} className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"><UserPlus className="mr-2 h-4 w-4" /> Nuevo Socio</button>
+        <div className="flex gap-2">
+          <button onClick={exportToExcel} className="inline-flex items-center justify-center rounded-md bg-white border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition"><Download className="mr-2 h-4 w-4" /> Exportar</button>
+          <button onClick={() => openModal()} className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"><UserPlus className="mr-2 h-4 w-4" /> Nuevo Socio</button>
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4 items-end">
@@ -360,7 +386,7 @@ export default function PlayersPage() {
         )}
       </div>
 
-      {/* MODALS */}
+      {/* MODALS - SE MANTIENEN IGUAL */}
       {isStatementOpen && selectedPlayerForStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
