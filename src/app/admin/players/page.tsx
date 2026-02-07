@@ -56,26 +56,27 @@ export default function PlayersPage() {
 
   useEffect(() => { fetchPlayers() }, [])
 
-  // --- LÓGICA DE FILTRADO TOLERANTE A DATOS MIXTOS ---
+  // --- LÓGICA DE FILTRADO REPARADA ---
   const filteredPlayers = players.filter(p => {
     try {
-        const name = p?.name || "";
+        const name = (p?.name || "").toLowerCase();
         const dni = p?.dni || "";
-        const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || dni.includes(searchTerm);
+        const matchesSearch = name.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm);
         
-        // Filtro de Estado
-        const matchesStatus = filterStatus === 'all' || p?.status === filterStatus;
+        // Filtro Estado (Case Insensitive)
+        const playerStatus = (p?.status || "").toLowerCase();
+        const matchesStatus = filterStatus === 'all' || playerStatus === filterStatus.toLowerCase();
         
-        // Filtro de Género (Mapeo M/male y F/female)
+        // Filtro Género (Soporta M/male y F/female)
+        const playerGender = (p?.gender || "").toLowerCase();
         let matchesGender = filterGender === 'all';
         if (!matchesGender) {
-            const genderValue = (p?.gender || "").toLowerCase();
-            if (filterGender === 'male') matchesGender = (genderValue === 'male' || genderValue === 'm');
-            if (filterGender === 'female') matchesGender = (genderValue === 'female' || genderValue === 'f');
-            if (filterGender === 'other') matchesGender = (genderValue === 'other');
+            if (filterGender === 'male') matchesGender = (playerGender === 'male' || playerGender === 'm');
+            if (filterGender === 'female') matchesGender = (playerGender === 'female' || playerGender === 'f');
+            if (filterGender === 'other') matchesGender = (playerGender === 'other');
         }
         
-        // Filtro de Categoría
+        // Filtro Categoría
         const pCategory = getCategory(p?.birth_date);
         const matchesCategory = filterCategory === 'all' || pCategory === filterCategory;
 
@@ -94,7 +95,7 @@ export default function PlayersPage() {
           p?.dni || '',
           p?.email || '',
           getCategory(p?.birth_date),
-          p?.gender === 'male' || p?.gender === 'M' ? 'Masculino' : p?.gender === 'female' || p?.gender === 'F' ? 'Femenino' : 'Otro',
+          (p?.gender || "").toLowerCase().startsWith('m') ? 'Masculino' : (p?.gender || "").toLowerCase().startsWith('f') ? 'Femenino' : 'Otro',
           p?.status === 'active' ? 'Activo' : 'Inactivo',
           p?.account_balance || 0
         ].join(';'));
@@ -147,33 +148,22 @@ export default function PlayersPage() {
       paymentsData?.forEach(p => {
           if (p.method === 'adjustment') {
               transactions.push({
-                  id: p.id, 
-                  type: 'adjustment', 
-                  amount: p.amount, 
-                  date: p.date || p.created_at,
-                  description: 'Ajuste Administrativo',
-                  notes: p.notes 
+                  id: p.id, type: 'adjustment', amount: p.amount, 
+                  date: p.date || p.created_at, description: 'Ajuste Administrativo', notes: p.notes 
               })
           } 
           else if (p.method === 'cuota') {
               const monthLabel = p.proof_url || '';
               transactions.push({
-                  id: p.id, 
-                  type: 'fee', 
-                  amount: p.amount, 
-                  date: p.date || p.created_at,
-                  description: monthLabel.toLowerCase().includes('cuota') ? monthLabel : `Cuota Mensual ${monthLabel}`
+                  id: p.id, type: 'fee', amount: p.amount, 
+                  date: p.date || p.created_at, description: monthLabel.toLowerCase().includes('cuota') ? monthLabel : `Cuota Mensual ${monthLabel}`
               })
           }
           else {
               const isCash = !p.proof_url || p.payment_method === 'cash' || p.payment_method === 'efectivo';
-              
               transactions.push({
-                  id: p.id, 
-                  type: 'payment', 
-                  amount: p.amount, 
-                  date: p.date || p.created_at,
-                  description: isCash ? 'Pago (efectivo)' : 'Pago (transferencia)'
+                  id: p.id, type: 'payment', amount: p.amount, 
+                  date: p.date || p.created_at, description: isCash ? 'Pago (efectivo)' : 'Pago (transferencia)'
               })
           }
       })
@@ -228,11 +218,8 @@ export default function PlayersPage() {
       } 
       else { 
         const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: formData.email,
-            password: formData.dni,
-            options: {
-              data: { full_name: formData.name, dni: formData.dni, role: 'player' }
-            }
+            email: formData.email, password: formData.dni,
+            options: { data: { full_name: formData.name, dni: formData.dni, role: 'player' } }
         })
         if (authError) throw authError
         if (authData.user) {
@@ -288,7 +275,6 @@ export default function PlayersPage() {
         </div>
       </div>
 
-      {/* TABLA ESCRITORIO */}
       <div className="hidden md:block overflow-hidden rounded-lg bg-white shadow border border-gray-200">
         {loading ? ( <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-indigo-600" /></div> ) : (
           <table className="min-w-full divide-y divide-gray-200">
@@ -318,7 +304,6 @@ export default function PlayersPage() {
         )}
       </div>
 
-      {/* VISTA MÓVIL Y MODALES (SIN CAMBIOS) */}
       <div className="md:hidden space-y-4">
         {!loading && filteredPlayers.map((player) => (
             <div key={player.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
@@ -332,38 +317,20 @@ export default function PlayersPage() {
                     <p className="text-[11px] text-gray-500 font-medium uppercase tracking-tighter">{player?.dni || 'SIN DNI'}</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleStatusClick(player)} 
-                  className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm border ${player?.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}
-                >
-                  {player?.status === 'active' ? 'Activo' : 'Inactivo'}
-                </button>
+                <button onClick={() => handleStatusClick(player)} className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm border ${player?.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>{player?.status === 'active' ? 'Activo' : 'Inactivo'}</button>
               </div>
               <div className="grid grid-cols-2 gap-2 bg-gray-50 rounded-lg p-3">
-                <div className="space-y-0.5">
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Categoría</p>
-                  <p className="text-xs font-bold text-gray-700">{getCategory(player?.birth_date)}</p>
-                </div>
-                <div className="space-y-0.5 text-right">
-                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Saldo</p>
-                  <p className={`text-xs font-black ${(player?.account_balance || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {(player?.account_balance || 0) < 0 ? '-' : '+'}${Math.abs(player?.account_balance || 0).toLocaleString()}
-                  </p>
-                </div>
+                <div className="space-y-0.5"><p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Categoría</p><p className="text-xs font-bold text-gray-700">{getCategory(player?.birth_date)}</p></div>
+                <div className="space-y-0.5 text-right"><p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Saldo</p><p className={`text-xs font-black ${(player?.account_balance || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>{(player?.account_balance || 0) < 0 ? '-' : '+'}${Math.abs(player?.account_balance || 0).toLocaleString()}</p></div>
               </div>
               <div className="flex gap-2 pt-1">
-                <button onClick={() => openStatement(player)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition">
-                  <DollarSign size={14} /> Cuenta
-                </button>
-                <button onClick={() => openModal(player)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition">
-                  <Edit2 size={14} /> Editar
-                </button>
+                <button onClick={() => openStatement(player)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition"><DollarSign size={14} /> Cuenta</button>
+                <button onClick={() => openModal(player)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-[10px] font-black uppercase tracking-widest active:scale-95 transition"><Edit2 size={14} /> Editar</button>
               </div>
             </div>
         ))}
       </div>
 
-      {/* SECCIÓN DE MODALES (MANTENIDA IDÉNTICA) */}
       {isStatementOpen && selectedPlayerForStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
@@ -383,21 +350,9 @@ export default function PlayersPage() {
                                     <div className={`p-2 rounded-full ${t.type === 'payment' ? 'bg-green-100 text-green-600' : (t.type === 'adjustment' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600')}`}>
                                         {t.type === 'payment' ? <ArrowUpCircle size={20}/> : (t.type === 'adjustment' ? <FileText size={20}/> : <ArrowDownCircle size={20}/>)}
                                     </div>
-                                    <div>
-                                        <p className="font-bold text-sm text-gray-900">{t.description}</p>
-                                        {t.type === 'adjustment' && t.notes && (
-                                            <p className="text-[10px] text-gray-400 italic uppercase font-medium">{t.notes}</p>
-                                        )}
-                                        <p className="text-xs text-gray-400">{format(parseISO(t.date), 'dd/MM/yyyy')}</p>
-                                    </div>
+                                    <div><p className="font-bold text-sm text-gray-900">{t.description}</p>{t.type === 'adjustment' && t.notes && (<p className="text-[10px] text-gray-400 italic uppercase font-medium">{t.notes}</p>)}<p className="text-xs text-gray-400">{format(parseISO(t.date), 'dd/MM/yyyy')}</p></div>
                                 </div>
-                                <span className={`font-black text-sm ${
-                                    t.type === 'adjustment' ? 'text-blue-600' : 
-                                    t.type === 'fee' ? 'text-red-600' : 
-                                    'text-green-600'
-                                }`}>
-                                    {t.amount < 0 ? '-' : '+'}${Math.abs(t.amount).toLocaleString()}
-                                </span>
+                                <span className={`font-black text-sm ${t.type === 'adjustment' ? 'text-blue-600' : t.type === 'fee' ? 'text-red-600' : 'text-green-600'}`}>{t.amount < 0 ? '-' : '+'}${Math.abs(t.amount).toLocaleString()}</span>
                             </div>
                         ))
                     )}
@@ -410,10 +365,7 @@ export default function PlayersPage() {
       {isStatusModalOpen && playerToToggle && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="w-full max-w-md rounded-xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div className="p-5 border-b bg-gray-50 flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-gray-900">{playerToToggle.status === 'active' ? 'Dar de Baja' : 'Reactivar Socio'}</h3>
-                    <button onClick={() => setIsStatusModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
-                </div>
+                <div className="p-5 border-b bg-gray-50 flex justify-between items-center"><h3 className="text-lg font-bold text-gray-900">{playerToToggle.status === 'active' ? 'Dar de Baja' : 'Reactivar Socio'}</h3><button onClick={() => setIsStatusModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button></div>
                 <div className="p-6 text-center">
                     <p className="text-gray-600 mb-6 text-left">Cambiar estado de <strong>{playerToToggle.name}</strong> a:</p>
                     <div className={`w-full py-4 rounded-xl font-black uppercase tracking-wider shadow-sm border-2 mb-6 ${playerToToggle.status === 'active' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200'}`}>{playerToToggle.status === 'active' ? 'INACTIVO (Baja)' : 'ACTIVO (Alta)'}</div>
@@ -427,89 +379,12 @@ export default function PlayersPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl overflow-hidden border border-gray-100">
-            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-              <h2 className="text-lg font-black text-gray-900 uppercase italic tracking-tight">{editingPlayer ? 'Editar Socio' : 'Nuevo Socio'}</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition"><X size={20}/></button>
-            </div>
+            <div className="p-4 border-b flex justify-between items-center bg-gray-50"><h2 className="text-lg font-black text-gray-900 uppercase italic tracking-tight">{editingPlayer ? 'Editar Socio' : 'Nuevo Socio'}</h2><button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition"><X size={20}/></button></div>
             <form onSubmit={handleSave} className="p-5 space-y-5">
-              <div>
-                  <div className="mb-2 border-b border-gray-200 pb-1 flex items-center gap-2">
-                    <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><ShieldCheck size={14}/> Acceso</h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Email Principal</label>
-                      <input required type="email" placeholder="usuario@gmail.com" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-                    </div>
-                  </div>
-              </div>
-              <div>
-                  <div className="mb-2 border-b border-gray-200 pb-1 flex items-center gap-2">
-                    <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><User size={14}/> Personal</h3>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Nombre Completo</label>
-                      <input required type="text" placeholder="Juan Pérez" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">DNI (Único)</label>
-                        <input required type="text" placeholder="12345678" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.dni} onChange={e => setFormData({...formData, dni: e.target.value})} />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Nacimiento</label>
-                        <input required type="date" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.birth_date} onChange={e => setFormData({...formData, birth_date: e.target.value})} />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Teléfono</label>
-                        <input required type="text" placeholder="223445566" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Género</label>
-                        <select required className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})}>
-                          <option value="">...</option>
-                          <option value="male">Masculino</option>
-                          <option value="female">Femenino</option>
-                          <option value="other">Otro</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Dirección</label>
-                      <input required type="text" placeholder="Av. Colón 123" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} />
-                    </div>
-                  </div>
-              </div>
-              <div className="p-4 bg-red-50 rounded-xl border border-red-100">
-                <div className="mb-2 border-b border-red-200 pb-1 flex items-center gap-2">
-                  <h3 className="text-[10px] font-black text-red-700 uppercase tracking-widest flex items-center gap-2"><Shield size={14}/> Salud</h3>
-                </div>
-                <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-red-900 uppercase ml-1">Contacto</label>
-                        <input required type="text" placeholder="Mamá" className="w-full p-2 border border-red-200 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-red-500 transition bg-white" value={formData.emergency_contact_name} onChange={e => setFormData({...formData, emergency_contact_name: e.target.value})} />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-red-900 uppercase ml-1">Tel. Emerg.</label>
-                        <input required type="text" placeholder="223..." className="w-full p-2 border border-red-200 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-red-500 transition bg-white" value={formData.emergency_contact} onChange={e => setFormData({...formData, emergency_contact: e.target.value})} />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-bold text-red-900 uppercase ml-1">Ficha Médica</label>
-                      <textarea required rows={2} placeholder="Alergias..." className="w-full p-2 border border-red-200 rounded-lg font-bold text-xs text-gray-900 outline-none transition resize-none focus:ring-1 focus:ring-red-500 bg-white" value={formData.medical_notes} onChange={e => setFormData({...formData, medical_notes: e.target.value})} />
-                    </div>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-3 border-t bg-gray-50 -m-5 mt-2 p-4">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-bold text-xs hover:bg-white transition shadow-sm">Cancelar</button>
-                <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-black uppercase text-xs tracking-wider hover:bg-indigo-700 transition shadow-lg flex items-center gap-2">
-                  {isSubmitting ? <Loader2 className="animate-spin h-3 w-3" /> : editingPlayer ? 'Guardar' : 'Crear'}
-                </button>
-              </div>
+              <div><div className="mb-2 border-b border-gray-200 pb-1 flex items-center gap-2"><h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><ShieldCheck size={14}/> Acceso</h3></div><div className="grid grid-cols-1 md:grid-cols-2 gap-3"><div className="space-y-1"><label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Email Principal</label><input required type="email" placeholder="usuario@gmail.com" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} /></div></div></div>
+              <div><div className="mb-2 border-b border-gray-200 pb-1 flex items-center gap-2"><h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><User size={14}/> Personal</h3></div><div className="space-y-3"><div className="space-y-1"><label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Nombre Completo</label><input required type="text" placeholder="Juan Pérez" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">DNI (Único)</label><input required type="text" placeholder="12345678" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.dni} onChange={e => setFormData({...formData, dni: e.target.value})} /></div><div className="space-y-1"><label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Nacimiento</label><input required type="date" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.birth_date} onChange={e => setFormData({...formData, birth_date: e.target.value})} /></div></div><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Teléfono</label><input required type="text" placeholder="223445566" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} /></div><div className="space-y-1"><label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Género</label><select required className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})}><option value="">...</option><option value="male">Masculino</option><option value="female">Femenino</option><option value="other">Otro</option></select></div></div><div className="space-y-1"><label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Dirección</label><input required type="text" placeholder="Av. Colón 123" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} /></div></div></div>
+              <div className="p-4 bg-red-50 rounded-xl border border-red-100"><div className="mb-2 border-b border-red-200 pb-1 flex items-center gap-2"><h3 className="text-[10px] font-black text-red-700 uppercase tracking-widest flex items-center gap-2"><Shield size={14}/> Salud</h3></div><div className="space-y-3"><div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="block text-[10px] font-bold text-red-900 uppercase ml-1">Contacto</label><input required type="text" placeholder="Mamá" className="w-full p-2 border border-red-200 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-red-500 transition bg-white" value={formData.emergency_contact_name} onChange={e => setFormData({...formData, emergency_contact_name: e.target.value})} /></div><div className="space-y-1"><label className="block text-[10px] font-bold text-red-900 uppercase ml-1">Tel. Emerg.</label><input required type="text" placeholder="223..." className="w-full p-2 border border-red-200 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-red-500 transition bg-white" value={formData.emergency_contact} onChange={e => setFormData({...formData, emergency_contact: e.target.value})} /></div></div><div className="space-y-1"><label className="block text-[10px] font-bold text-red-900 uppercase ml-1">Ficha Médica</label><textarea required rows={2} placeholder="Alergias..." className="w-full p-2 border border-red-200 rounded-lg font-bold text-xs text-gray-900 outline-none transition resize-none focus:ring-1 focus:ring-red-500 bg-white" value={formData.medical_notes} onChange={e => setFormData({...formData, medical_notes: e.target.value})} /></div></div></div>
+              <div className="flex justify-end gap-3 pt-3 border-t bg-gray-50 -m-5 mt-2 p-4"><button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-bold text-xs hover:bg-white transition shadow-sm">Cancelar</button><button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-black uppercase text-xs tracking-wider hover:bg-indigo-700 transition shadow-lg flex items-center gap-2">{isSubmitting ? <Loader2 className="animate-spin h-3 w-3" /> : editingPlayer ? 'Guardar' : 'Crear'}</button></div>
             </form>
           </div>
         </div>
