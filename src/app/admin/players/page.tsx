@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle } from 'lucide-react'
+import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle, Filter, Download } from 'lucide-react'
 import { parseISO, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -24,6 +24,11 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   
+  // --- NUEVOS ESTADOS DE FILTROS ---
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterCategory, setFilterCategory] = useState<string>('all')
+  const [filterGender, setFilterGender] = useState<string>('all')
+
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isStatementOpen, setIsStatementOpen] = useState(false)
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
@@ -51,6 +56,43 @@ export default function PlayersPage() {
   }
 
   useEffect(() => { fetchPlayers() }, [])
+
+  // --- LÓGICA DE FILTRADO COMBINADA ---
+  const filteredPlayers = players.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.dni?.includes(searchTerm);
+    const matchesStatus = filterStatus === 'all' || p.status === filterStatus;
+    const matchesGender = filterGender === 'all' || p.gender === filterGender;
+    
+    // Para categoría comparamos con el resultado de la función getCategory
+    const pCategory = getCategory(p.birth_date);
+    const matchesCategory = filterCategory === 'all' || pCategory === filterCategory;
+
+    return matchesSearch && matchesStatus && matchesGender && matchesCategory;
+  })
+
+  // --- FUNCIÓN EXCEL (CSV con ;) ---
+  const downloadExcel = () => {
+    const headers = ['Nombre', 'DNI', 'Email', 'Categoria', 'Sexo', 'Estado', 'Saldo'];
+    const rows = filteredPlayers.map(p => [
+      p.name,
+      p.dni || '',
+      p.email,
+      getCategory(p.birth_date),
+      p.gender === 'male' ? 'Masculino' : p.gender === 'female' ? 'Femenino' : 'Otro',
+      p.status === 'active' ? 'Activo' : 'Inactivo',
+      p.account_balance
+    ].join(';'));
+
+    const csvContent = [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `socios_la_cantera_${new Date().toLocaleDateString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   const handleStatusClick = (player: Player) => {
       setPlayerToToggle(player)
@@ -121,7 +163,6 @@ export default function PlayersPage() {
       setPlayerTransactions(transactions)
   }
 
-  // LOGICA CORREGIDA A PLURALES
   const getCategory = (birthDateString?: string) => {
     if (!birthDateString) return '-'
     const birthYear = parseISO(birthDateString).getFullYear()
@@ -158,7 +199,6 @@ export default function PlayersPage() {
           setIsSubmitting(false); return
       }
 
-      // ARREGLO CLAVE: Forzamos el guardado de la categoría en plural en la tabla 'users'
       const calculatedCategory = getCategory(formData.birth_date);
       const dataToSave = { ...formData, category: calculatedCategory };
 
@@ -184,15 +224,48 @@ export default function PlayersPage() {
     } catch (error: any) { alert('Error: ' + error.message) } finally { setIsSubmitting(false) }
   }
 
-  const filteredPlayers = players.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.dni?.includes(searchTerm))
-
   return (
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div><h1 className="text-3xl font-bold tracking-tight text-gray-900">Socios</h1><p className="mt-2 text-gray-500">Gestión de socios del club.</p></div>
-        <button onClick={() => openModal()} className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"><UserPlus className="mr-2 h-4 w-4" /> Nuevo Socio</button>
+        <div className="flex gap-2">
+          <button onClick={downloadExcel} className="inline-flex items-center justify-center rounded-md bg-white border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"><Download className="mr-2 h-4 w-4" /> Exportar</button>
+          <button onClick={() => openModal()} className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500"><UserPlus className="mr-2 h-4 w-4" /> Nuevo Socio</button>
+        </div>
       </div>
-      <div className="relative"><div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Search className="h-5 w-5 text-gray-400" /></div><input type="text" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 sm:text-sm" placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+
+      <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm space-y-4">
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Search className="h-5 w-5 text-gray-400" /></div>
+          <input type="text" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 sm:text-sm" placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        </div>
+
+        <div className="flex flex-wrap gap-4 items-center">
+           <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest"><Filter size={14}/> Filtros:</div>
+           
+           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+             <option value="all">TODOS LOS ESTADOS</option>
+             <option value="active">ACTIVOS</option>
+             <option value="inactive">INACTIVOS</option>
+           </select>
+
+           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+             <option value="all">TODAS LAS CATEGORÍAS</option>
+             <option value="Infantiles">INFANTILES</option>
+             <option value="Menores">MENORES</option>
+             <option value="Cadetes">CADETES</option>
+             <option value="Juveniles">JUVENILES</option>
+             <option value="Mayores">MAYORES</option>
+           </select>
+
+           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
+             <option value="all">TODOS LOS SEXOS</option>
+             <option value="male">MASCULINO</option>
+             <option value="female">FEMENINO</option>
+             <option value="other">OTRO</option>
+           </select>
+        </div>
+      </div>
 
       {/* VISTA PARA ESCRITORIO */}
       <div className="hidden md:block overflow-hidden rounded-lg bg-white shadow border border-gray-200">
@@ -281,7 +354,7 @@ export default function PlayersPage() {
         )}
       </div>
 
-      {/* MODALS */}
+      {/* MODALS - SE MANTIENEN IGUAL */}
       {isStatementOpen && selectedPlayerForStatement && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
