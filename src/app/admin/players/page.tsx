@@ -57,13 +57,14 @@ export default function PlayersPage() {
 
   useEffect(() => { fetchPlayers() }, [])
 
-  // --- LÓGICA DE FILTRADO ULTRA-BLINDADA ---
+  // --- LÓGICA DE FILTRADO REPARADA ---
   const filteredPlayers = players.filter(p => {
     try {
         const name = p?.name || "";
         const dni = p?.dni || "";
         const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) || dni.includes(searchTerm);
         
+        // Corregido: Comparación con minúsculas para coincidir con la base de datos
         const matchesStatus = filterStatus === 'all' || p?.status === filterStatus;
         const matchesGender = filterGender === 'all' || p?.gender === filterGender;
         
@@ -72,7 +73,6 @@ export default function PlayersPage() {
 
         return matchesSearch && matchesStatus && matchesGender && matchesCategory;
     } catch (err) {
-        console.error("Error filtering player:", p, err);
         return false;
     }
   })
@@ -262,13 +262,13 @@ export default function PlayersPage() {
         <div className="flex flex-wrap gap-4 items-center">
            <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest"><Filter size={14}/> Filtros:</div>
            
-           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
              <option value="all">TODOS LOS ESTADOS</option>
              <option value="active">ACTIVOS</option>
              <option value="inactive">INACTIVOS</option>
            </select>
 
-           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
              <option value="all">TODAS LAS CATEGORÍAS</option>
              <option value="Infantiles">INFANTILES</option>
              <option value="Menores">MENORES</option>
@@ -277,7 +277,7 @@ export default function PlayersPage() {
              <option value="Mayores">MAYORES</option>
            </select>
 
-           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
+           <select className="text-xs font-bold border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-700" value={filterGender} onChange={e => setFilterGender(e.target.value)}>
              <option value="all">TODOS LOS SEXOS</option>
              <option value="male">MASCULINO</option>
              <option value="female">FEMENINO</option>
