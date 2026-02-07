@@ -259,9 +259,9 @@ export default function PlayersPage() {
             onChange={(e) => setFilterStatus(e.target.value)}
             className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
           >
-            <option value="all">estado</option>
-            <option value="active">ACTIVOS</option>
-            <option value="inactive">INACTIVOS</option>
+            <option value="all">Estado</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
           </select>
 
           <select 
@@ -269,12 +269,12 @@ export default function PlayersPage() {
             onChange={(e) => setFilterCategory(e.target.value)}
             className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
           >
-            <option value="all">categorias</option>
-            <option value="Infantiles">INFANTILES</option>
-            <option value="Menores">MENORES</option>
-            <option value="Cadetes">CADETES</option>
-            <option value="Juveniles">JUVENILES</option>
-            <option value="Mayores">MAYORES</option>
+            <option value="all">Categorias</option>
+            <option value="Infantiles">Infantiles</option>
+            <option value="Menores">Menores</option>
+            <option value="Cadetes">Cadetes</option>
+            <option value="Juveniles">juveniles</option>
+            <option value="Mayores">Mayores</option>
           </select>
 
           <select 
@@ -283,9 +283,9 @@ export default function PlayersPage() {
             className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
           >
             <option value="all">Sexo</option>
-            <option value="male">MASCULINO</option>
-            <option value="female">FEMENINO</option>
-            <option value="other">OTRO</option>
+            <option value="male">Masculino</option>
+            <option value="female">Femenino</option>
+            <option value="other">Otro</option>
           </select>
         </div>
       </div>
