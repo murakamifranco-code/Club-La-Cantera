@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import { DollarSign, Search, CreditCard, Loader2, Calendar, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
+import { DollarSign, Search, CreditCard, Loader2, Calendar, CheckCircle, XCircle, AlertTriangle, Users } from 'lucide-react'
 import { format, parseISO, startOfMonth, subMonths, startOfYear, endOfMonth } from 'date-fns'
 
 export default function AdminDashboard() {
   const [dateFilter, setDateFilter] = useState<'current' | 'last' | 'year'>('current')
   
-  const [stats, setStats] = useState({ revenue: 0, debt: 0 })
+  const [stats, setStats] = useState({ revenue: 0, debt: 0, debtorCount: 0 })
   const [recentPayments, setRecentPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -53,20 +53,28 @@ export default function AdminDashboard() {
       .gte('date', startDate.toISOString())
       .lte('date', endDate.toISOString())
 
+    // 1. RECAUDACIÓN
     const revenue = movements?.filter(m => 
       m.amount > 0 && (m.method === 'cash' || m.method === 'transfer')
     ).reduce((acc, curr) => acc + curr.amount, 0) || 0;
 
-    // LÓGICA DE MOROSIDAD SIN COMPENSACIÓN DE SALDOS
+    // 2. MOROSIDAD Y CANTIDAD DE MOROSOS (Cálculo individual por socio)
     let periodDebt = 0;
+    let debtors = 0;
+    
     if (movements && movements.length > 0) {
       const balanceByUser: { [key: string]: number } = {};
+      
       movements.forEach(m => {
         if (!balanceByUser[m.user_id]) balanceByUser[m.user_id] = 0;
         balanceByUser[m.user_id] += m.amount;
       });
+
       Object.values(balanceByUser).forEach(balance => {
-        if (balance < 0) periodDebt += Math.abs(balance);
+        if (balance < 0) {
+          periodDebt += Math.abs(balance);
+          debtors++; // Sumamos uno a la cuenta de morosos
+        }
       });
     }
 
@@ -79,7 +87,8 @@ export default function AdminDashboard() {
 
     setStats({ 
         revenue, 
-        debt: periodDebt
+        debt: periodDebt,
+        debtorCount: debtors
     })
     setRecentPayments(recent || [])
     setLoading(false)
@@ -146,7 +155,8 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+      {/* TARJETAS KPI */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-left">
               <div className="flex justify-between items-start text-left">
                   <div className="text-left">
@@ -155,20 +165,34 @@ export default function AdminDashboard() {
                   </div>
                   <div className="p-2 bg-green-50 text-green-600 rounded-lg"><DollarSign size={20}/></div>
               </div>
-              <p className="text-xs text-green-600 mt-4 font-medium flex items-center gap-1 text-left">Cobrado en este periodo</p>
+              <p className="text-xs text-green-600 mt-4 font-medium text-left">Cobrado en este periodo</p>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-left">
               <div className="flex justify-between items-start text-left">
                   <div className="text-left">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Morosidad del Periodo</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Morosidad</p>
                       <h3 className={`text-2xl font-bold mt-1 ${stats.debt > 0 ? 'text-red-600' : 'text-gray-400'}`}>
                           ${stats.debt.toLocaleString()}
                       </h3>
                   </div>
                   <div className="p-2 bg-red-50 text-red-500 rounded-lg"><AlertTriangle size={20}/></div>
               </div>
-              <p className="text-xs text-gray-400 mt-4 font-medium text-left">Deuda neta generada en el periodo</p>
+              <p className="text-xs text-gray-400 mt-4 font-medium text-left">Deuda neta del periodo</p>
+          </div>
+
+          {/* NUEVO KPI: CANTIDAD DE MOROSOS */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-left">
+              <div className="flex justify-between items-start text-left">
+                  <div className="text-left">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Jugadores Morosos</p>
+                      <h3 className={`text-2xl font-bold mt-1 ${stats.debtorCount > 0 ? 'text-orange-600' : 'text-gray-400'}`}>
+                          {stats.debtorCount}
+                      </h3>
+                  </div>
+                  <div className="p-2 bg-orange-50 text-orange-500 rounded-lg"><Users size={20}/></div>
+              </div>
+              <p className="text-xs text-gray-400 mt-4 font-medium text-left">Socios con saldo negativo</p>
           </div>
       </div>
 
