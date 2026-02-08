@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { 
   LayoutDashboard, User, LogOut, Menu, Loader2, Edit2, Save, Upload, 
   CheckCircle, Clock, ArrowUpRight, ArrowDownLeft, X, Eye, ExternalLink, Settings,
-  ShieldCheck, Lock, Shield, Mail, Phone, MapPin, Calendar, CreditCard
+  ShieldCheck, Lock, Shield, Mail, Phone, MapPin, Calendar, CreditCard, Plus, Trash2
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -24,6 +24,8 @@ export default function PortalDashboard() {
 
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState<any>({})
+  // NUEVO ESTADO PARA MANEJAR FILAS DE PAGADORES
+  const [payers, setPayers] = useState<{ name: string; cuil: string }[]>([{ name: '', cuil: '' }])
   const [saveLoading, setSaveLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
@@ -34,7 +36,6 @@ export default function PortalDashboard() {
 
   useEffect(() => { fetchUserData() }, [])
 
-  // Detectar ancho de pantalla para cerrar sidebar en móvil automáticamente
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) setSidebarOpen(true)
@@ -45,9 +46,8 @@ export default function PortalDashboard() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Función para formatear CUIL automáticamente al editar
   const formatCuil = (val: string) => {
-    let value = val.replace(/\D/g, ""); // Solo números
+    let value = val.replace(/\D/g, ""); 
     if (value.length > 11) value = value.slice(0, 11);
     let formatted = value;
     if (value.length > 2) formatted = `${value.slice(0, 2)}-${value.slice(2)}`;
@@ -59,8 +59,17 @@ export default function PortalDashboard() {
     setFormData({ ...formData, cuil: formatCuil(val) });
   }
 
-  const handlePayerCuilChange = (val: string) => {
-    setFormData({ ...formData, payer_cuil: formatCuil(val) });
+  // LOGICA DINÁMICA PARA FILAS DE PAGADORES
+  const handleAddPayer = () => setPayers([...payers, { name: '', cuil: '' }])
+  const handleRemovePayer = (index: number) => {
+    if (payers.length > 1) {
+      setPayers(payers.filter((_, i) => i !== index))
+    }
+  }
+  const handlePayerChange = (index: number, field: 'name' | 'cuil', value: string) => {
+    const newPayers = [...payers]
+    newPayers[index][field] = field === 'cuil' ? formatCuil(value) : value
+    setPayers(newPayers)
   }
 
   const fetchUserData = async () => {
@@ -70,7 +79,6 @@ export default function PortalDashboard() {
       const { data: userData } = await supabase.from('users').select('*').eq('id', storedId).single()
       if (userData) { 
         setUser(userData); 
-        // Normalización de género para que no aparezca vacío el select
         const dbGender = (userData.gender || "").toLowerCase();
         let normalizedGender = "";
         if (dbGender === 'masculino' || dbGender === 'male' || dbGender === 'm') normalizedGender = "Masculino";
@@ -78,6 +86,17 @@ export default function PortalDashboard() {
         else if (dbGender === 'otro' || dbGender === 'other' || dbGender === 'x') normalizedGender = "Otro";
         
         setFormData({ ...userData, gender: normalizedGender }); 
+
+        // PARSEAR PAGADORES SI EXISTEN
+        if (userData.payer_name) {
+          const names = userData.payer_name.split(' / ')
+          const cuils = (userData.payer_cuil || "").split(' / ')
+          const parsedPayers = names.map((name: string, i: number) => ({
+            name: name,
+            cuil: cuils[i] || ''
+          }))
+          setPayers(parsedPayers)
+        }
       }
       const { data: paymentsData } = await supabase.from('payments').select('*').eq('user_id', storedId).order('date', { ascending: false })
       setPayments(paymentsData || [])
@@ -90,6 +109,10 @@ export default function PortalDashboard() {
     setSaveLoading(true)
     setMessage(null)
     try {
+      // UNIFICAR FILAS DINÁMICAS PARA GUARDAR EN LA DB
+      const combinedPayerNames = payers.map(p => p.name).filter(n => n !== "").join(' / ')
+      const combinedPayerCuils = payers.map(p => p.cuil).filter(c => c !== "").join(' / ')
+
       const updates = {
         name: formData.name, 
         cuil: formData.cuil, 
@@ -101,8 +124,8 @@ export default function PortalDashboard() {
         emergency_contact: formData.emergency_contact, 
         emergency_phone: formData.emergency_phone,
         medical_conditions: formData.medical_conditions,
-        payer_name: formData.payer_name, // Nuevo campo
-        payer_cuil: formData.payer_cuil, // Nuevo campo
+        payer_name: combinedPayerNames || null, 
+        payer_cuil: combinedPayerCuils || null,
         updated_at: new Date().toISOString()
       }
       const { error } = await supabase.from('users').update(updates).eq('id', user.id)
@@ -123,7 +146,6 @@ export default function PortalDashboard() {
               publicUrl = supabase.storage.from('receipts').getPublicUrl(fileName).data.publicUrl
           }
           
-          // ARREGLO PARA QUE EL PAGO SE MUESTRE: Se quitan payer_name y payer_cuil para evitar error de columna inexistente
           const { error: insertError } = await supabase.from('payments').insert({
               user_id: user.id, 
               amount: parseFloat(amount), 
@@ -150,7 +172,6 @@ export default function PortalDashboard() {
 
   return (
     <div className="flex min-h-screen bg-gray-50 font-sans relative text-left">
-      {/* SIDEBAR RESPONSIVO */}
       <aside className={`bg-[#1e1b4b] text-white transition-all duration-300 ${sidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full lg:w-20 lg:translate-x-0'} fixed h-full z-30 flex flex-col shadow-xl overflow-hidden`}>
         <div className="p-6 flex items-center justify-between border-b border-white/10 min-w-[256px] lg:min-w-0 text-left">
           {sidebarOpen ? <div className="flex items-center gap-3 text-left"><div className="bg-white p-1 rounded-full"><img src="/logo.png" className="h-6 w-6 object-contain" /></div><div><h1 className="font-black italic leading-none text-sm uppercase">CLUB LA CANTERA</h1></div></div> : <img src="/logo.png" className="h-8 w-8 mx-auto bg-white rounded-full p-1" />}
@@ -164,11 +185,9 @@ export default function PortalDashboard() {
         <div className="p-4 border-t border-white/10 min-w-[256px] lg:min-w-0 text-left"><button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl font-bold transition text-left"><LogOut size={20} /> {sidebarOpen && <span>Salir</span>}</button></div>
       </aside>
 
-      {/* OVERLAY PARA MÓVIL CUANDO SIDEBAR ESTÁ ABIERTO */}
       {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => setSidebarOpen(false)}></div>}
 
       <main className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-20'} p-4 md:p-8 text-left`}>
-        {/* BOTÓN MENÚ MÓVIL */}
         <div className="lg:hidden mb-4 flex items-center gap-3 text-left">
           <button onClick={() => setSidebarOpen(true)} className="p-2 bg-white rounded-lg shadow-sm border border-gray-200 text-[#1e1b4b]"><Menu size={24}/></button>
           <h1 className="font-black italic text-sm text-[#1e1b4b] uppercase">LA CANTERA</h1>
@@ -272,15 +291,39 @@ export default function PortalDashboard() {
 
                   {/* SECCIÓN RESPONSABLE DE PAGOS EN EL PERFIL */}
                   <div className="mb-6 border-b border-gray-200 pb-2 text-left"><h3 className="flex items-center gap-2 text-[10px] md:text-xs font-black text-indigo-700 uppercase tracking-widest text-left"><CreditCard size={16}/> Responsable de Pagos</h3></div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                      <div className="space-y-1 text-left">
-                          <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1 text-left">Nombre del Pagador</label>
-                          <input disabled={!isEditing} type="text" value={isEditing ? formData.payer_name : (user.payer_name || '')} onChange={e => setFormData({...formData, payer_name: e.target.value})} className={`w-full p-3 border rounded-xl font-bold text-sm outline-none transition text-left ${isEditing ? 'border-gray-400 focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} placeholder="Ej: Padre/Madre/Tutor"/>
-                      </div>
-                      <div className="space-y-1 text-left">
-                          <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1 text-left">CUIL del Pagador</label>
-                          <input disabled={!isEditing} type="text" value={isEditing ? formData.payer_cuil : (user.payer_cuil || '')} onChange={e => handlePayerCuilChange(e.target.value)} className={`w-full p-3 border rounded-xl font-bold text-sm outline-none transition text-left ${isEditing ? 'border-gray-400 focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} placeholder="20-XXXXXXXX-X"/>
-                      </div>
+                  <div className="space-y-4 text-left">
+                      {payers.map((payer, index) => (
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                          <div className="space-y-1 text-left">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase ml-1 text-left">Nombre Pagador {index + 1}</label>
+                            <input 
+                              disabled={!isEditing} 
+                              type="text" 
+                              value={payer.name} 
+                              onChange={e => handlePayerChange(index, 'name', e.target.value)} 
+                              className={`w-full p-3 border rounded-xl font-bold text-sm outline-none transition text-left ${isEditing ? 'border-gray-400 focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} 
+                              placeholder="Ej: Padre/Madre/Tutor"
+                            />
+                          </div>
+                          <div className="space-y-1 text-left">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase ml-1 text-left">CUIL Pagador {index + 1}</label>
+                            <input 
+                              disabled={!isEditing} 
+                              type="text" 
+                              value={payer.cuil} 
+                              onChange={e => handlePayerChange(index, 'cuil', e.target.value)} 
+                              className={`w-full p-3 border rounded-xl font-bold text-sm outline-none transition text-left ${isEditing ? 'border-gray-400 focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white' : 'border-gray-200 bg-gray-50 text-gray-900'}`} 
+                              placeholder="20-XXXXXXXX-X"
+                            />
+                          </div>
+                          {isEditing && payers.length > 1 && (
+                            <button onClick={() => handleRemovePayer(index)} className="p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition"><Trash2 size={18}/></button>
+                          )}
+                        </div>
+                      ))}
+                      {isEditing && (
+                        <button onClick={handleAddPayer} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-black text-[10px] uppercase hover:bg-indigo-100 transition border border-indigo-200 shadow-sm"><Plus size={16}/> Agregar otro pagador</button>
+                      )}
                   </div>
 
                   <div className="mt-8 mb-6 border-b border-gray-200 pb-2 text-left"><h3 className="flex items-center gap-2 text-[10px] md:text-xs font-black text-indigo-700 uppercase tracking-widest text-left"><User size={16}/> Información Personal</h3></div>
