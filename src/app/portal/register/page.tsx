@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, AlertCircle, ShieldCheck, X, FileText, User, HeartPulse, ShieldAlert, MapPin, Phone, Calendar, Eye, EyeOff } from 'lucide-react'
+import { Loader2, AlertCircle, ShieldCheck, X, FileText, User, HeartPulse, ShieldAlert, MapPin, Phone, Calendar, Eye, EyeOff, CreditCard } from 'lucide-react'
 
 export default function Register() {
   const router = useRouter()
@@ -12,7 +12,8 @@ export default function Register() {
   const [formData, setFormData] = useState({
       email: '', password: '', name: '', cuil: '', phone: '',
       birth_date: '', address: '', gender: '',
-      emergency_contact_name: '', emergency_contact: '', medical_notes: ''
+      emergency_contact_name: '', emergency_contact: '', medical_notes: '',
+      payer_name: '', payer_cuil: '' // Nuevos campos
   })
   
   const [loading, setLoading] = useState(false)
@@ -22,20 +23,26 @@ export default function Register() {
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
 
+  // Estado para controlar si paga el socio o un tercero
+  const [isThirdPartyPayer, setIsThirdPartyPayer] = useState(false)
+
   // Función para formatear CUIL automáticamente
+  const formatCuil = (value: string) => {
+    let val = value.replace(/\D/g, ""); // Solo números
+    if (val.length > 11) val = val.slice(0, 11);
+
+    let formatted = val;
+    if (val.length > 2) formatted = `${val.slice(0, 2)}-${val.slice(2)}`;
+    if (val.length > 10) formatted = `${formatted.slice(0, 11)}-${val.slice(10, 11)}`;
+    return formatted;
+  }
+
   const handleCuilChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ""); // Solo números
-    if (value.length > 11) value = value.slice(0, 11); // Máximo 11 dígitos
+    setFormData({ ...formData, cuil: formatCuil(e.target.value) });
+  }
 
-    let formatted = value;
-    if (value.length > 2) {
-      formatted = `${value.slice(0, 2)}-${value.slice(2)}`;
-    }
-    if (value.length > 10) {
-      formatted = `${formatted.slice(0, 11)}-${value.slice(10, 11)}`;
-    }
-
-    setFormData({ ...formData, cuil: formatted });
+  const handlePayerCuilChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, payer_cuil: formatCuil(e.target.value) });
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,7 +80,9 @@ export default function Register() {
           gender: formData.gender,
           emergency_contact_name: formData.emergency_contact_name,
           emergency_contact: formData.emergency_contact,
-          medical_notes: formData.medical_notes
+          medical_notes: formData.medical_notes,
+          payer_name: isThirdPartyPayer ? formData.payer_name : null,
+          payer_cuil: isThirdPartyPayer ? formData.payer_cuil : null
         })
 
         if (profileError) throw profileError
@@ -186,6 +195,61 @@ export default function Register() {
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><MapPin size={14}/> Dirección / Domicilio</label>
                 <input type="text" required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" placeholder="Ej: Av. Luro 1234" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
               </div>
+          </div>
+
+          <div className="space-y-4">
+              <h3 className="flex items-center gap-2 font-black text-gray-900 uppercase text-sm border-b pb-2 mb-4 mt-8">
+                  <CreditCard size={18} className="text-indigo-600"/> Responsable de Pagos
+              </h3>
+              <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-gray-700 text-sm">
+                      <input 
+                        type="radio" 
+                        name="payer_type" 
+                        checked={!isThirdPartyPayer} 
+                        onChange={() => setIsThirdPartyPayer(false)}
+                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" 
+                      />
+                      Yo realizaré las transferencias
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-gray-700 text-sm">
+                      <input 
+                        type="radio" 
+                        name="payer_type" 
+                        checked={isThirdPartyPayer} 
+                        onChange={() => setIsThirdPartyPayer(true)}
+                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" 
+                      />
+                      Un tercero (Padre/Madre/Tutor)
+                  </label>
+              </div>
+
+              {isThirdPartyPayer && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Pagador</label>
+                        <input 
+                          type="text" 
+                          required={isThirdPartyPayer} 
+                          className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" 
+                          placeholder="Ej: Marta García" 
+                          value={formData.payer_name} 
+                          onChange={(e) => setFormData({...formData, payer_name: e.target.value})} 
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CUIL del Pagador</label>
+                        <input 
+                          type="text" 
+                          required={isThirdPartyPayer} 
+                          className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" 
+                          placeholder="20-XXXXXXXX-X" 
+                          value={formData.payer_cuil} 
+                          onChange={handlePayerCuilChange} 
+                        />
+                    </div>
+                </div>
+              )}
           </div>
 
           <div className="space-y-4 bg-red-50 p-4 rounded-xl border border-red-100">
