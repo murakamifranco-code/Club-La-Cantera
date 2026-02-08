@@ -49,7 +49,7 @@ export default function AdminDashboard() {
     }
 
     const { data: movements } = await supabase.from('payments')
-      .select('amount, method, date')
+      .select('user_id, amount, method, date')
       .gte('date', startDate.toISOString())
       .lte('date', endDate.toISOString())
 
@@ -57,8 +57,18 @@ export default function AdminDashboard() {
       m.amount > 0 && (m.method === 'cash' || m.method === 'transfer')
     ).reduce((acc, curr) => acc + curr.amount, 0) || 0;
 
-    const periodBalance = movements?.reduce((acc, curr) => acc + curr.amount, 0) || 0;
-    const periodDebt = periodBalance < 0 ? Math.abs(periodBalance) : 0;
+    // LÓGICA DE MOROSIDAD SIN COMPENSACIÓN DE SALDOS
+    let periodDebt = 0;
+    if (movements && movements.length > 0) {
+      const balanceByUser: { [key: string]: number } = {};
+      movements.forEach(m => {
+        if (!balanceByUser[m.user_id]) balanceByUser[m.user_id] = 0;
+        balanceByUser[m.user_id] += m.amount;
+      });
+      Object.values(balanceByUser).forEach(balance => {
+        if (balance < 0) periodDebt += Math.abs(balance);
+      });
+    }
 
     const { data: recent } = await supabase.from('payments')
       .select('*, users(name)')
@@ -90,7 +100,6 @@ export default function AdminDashboard() {
       setProcessing(true)
       try {
           const amount = parseFloat(quickPayAmount)
-
           const birthYear = quickPayUser.birth_date ? parseISO(quickPayUser.birth_date).getFullYear() : 0
           const currentYear = new Date().getFullYear()
           const age = currentYear - birthYear
@@ -122,8 +131,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 font-sans text-left">
-      
-      {/* HEADER + FILTRO */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 text-left">
         <div className="text-left">
             <h1 className="text-2xl font-bold text-gray-800">Panel de Control</h1>
@@ -139,7 +146,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* TARJETAS KPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-left">
               <div className="flex justify-between items-start text-left">
@@ -162,7 +168,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="p-2 bg-red-50 text-red-500 rounded-lg"><AlertTriangle size={20}/></div>
               </div>
-              <p className="text-xs text-gray-400 mt-4 font-medium text-left">Suma de deudas actuales</p>
+              <p className="text-xs text-gray-400 mt-4 font-medium text-left">Deuda neta generada en el periodo</p>
           </div>
       </div>
 
@@ -213,17 +219,13 @@ export default function AdminDashboard() {
                   <form onSubmit={handleQuickPay} className="text-left">
                       <label className="text-xs font-bold text-gray-500 uppercase ml-1 text-left">Monto Recibido</label>
                       <div className="relative mt-1 text-left"><span className="absolute left-3 top-3 text-gray-500 font-bold text-lg text-left">$</span><input type="number" required min="1" disabled={!quickPayUser} className="w-full pl-8 p-3 border border-gray-300 rounded-lg outline-none focus:border-green-500 transition font-bold text-xl text-gray-800 placeholder-gray-300 disabled:bg-gray-50 text-left" placeholder="0" value={quickPayAmount} onChange={(e) => setQuickPayAmount(e.target.value)}/></div>
-                      
-                      {/* CARTEL DE CONFIRMACIÓN DINÁMICO */}
                       {quickPayUser && quickPayAmount && (
-                        <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg animate-in fade-in slide-in-from-top-1 duration-300">
-                          <p className="text-xs font-bold text-green-700 flex items-center gap-2">
+                        <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg animate-in fade-in slide-in-from-top-1 duration-300 text-left">
+                          <p className="text-xs font-bold text-green-700 flex items-center gap-2 text-left">
                             <CheckCircle size={14}/> Usted está por ingresarle <span className="text-sm font-black">${Number(quickPayAmount).toLocaleString()}</span> a {quickPayUser.name.split(' ')[0]}
                           </p>
                         </div>
                       )}
-
-                      {/* BOTÓN VERDE */}
                       <button disabled={!quickPayUser || !quickPayAmount || processing} className="w-full mt-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition shadow-md uppercase tracking-wide text-sm text-left flex justify-center items-center">
                         {processing ? <Loader2 className="animate-spin mx-auto text-center"/> : 'INGRESAR DINERO'}
                       </button>
