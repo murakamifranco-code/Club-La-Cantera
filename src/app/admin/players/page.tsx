@@ -206,15 +206,23 @@ export default function PlayersPage() {
   // --- LÓGICA DE EXPORTACIÓN EXCEL (CON ;) ---
   const exportToExcel = () => {
     const headers = ['Nombre', 'CUIL', 'Email', 'Categoria', 'Sexo', 'Estado', 'Saldo'];
-    const rows = filteredPlayers.map(p => [
-      p.name || '',
-      p.cuil || '',
-      p.email || '',
-      getCategory(p.birth_date),
-      p.gender === 'male' ? 'Masculino' : p.gender === 'female' ? 'Femenino' : 'Otro',
-      p.status === 'active' ? 'Activo' : 'Inactivo',
-      p.account_balance || 0
-    ].join(';')); // Uso de punto y coma
+    const rows = filteredPlayers.map(p => {
+      // Normalización inteligente del sexo para el Excel
+      const dbGender = (p.gender || "").toLowerCase();
+      let excelGender = "Otro";
+      if (dbGender === 'male' || dbGender === 'm' || dbGender === 'masculino') excelGender = "Masculino";
+      if (dbGender === 'female' || dbGender === 'f' || dbGender === 'femenino') excelGender = "Femenino";
+
+      return [
+        p.name || '',
+        p.cuil || '',
+        p.email || '',
+        getCategory(p.birth_date),
+        excelGender,
+        p.status === 'active' ? 'Activo' : 'Inactivo',
+        p.account_balance || 0
+      ].join(';');
+    });
 
     const csvContent = [headers.join(';'), ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -260,9 +268,9 @@ export default function PlayersPage() {
             onChange={(e) => setFilterStatus(e.target.value)}
             className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
           >
-            <option value="all">Estado</option>
-            <option value="active">Activos</option>
-            <option value="inactive">Inactivos</option>
+            <option value="all">estado</option>
+            <option value="active">ACTIVOS</option>
+            <option value="inactive">INACTIVOS</option>
           </select>
 
           <select 
@@ -270,7 +278,7 @@ export default function PlayersPage() {
             onChange={(e) => setFilterCategory(e.target.value)}
             className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
           >
-            <option value="all">Categorias</option>
+            <option value="all">categorias</option>
             <option value="Infantiles">Infantiles</option>
             <option value="Menores">Menores</option>
             <option value="Cadetes">Cadetes</option>
