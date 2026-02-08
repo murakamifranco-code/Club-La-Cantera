@@ -76,9 +76,10 @@ export default function AdminFees() {
               throw new Error(`La ${automaticConcept} ya fue generada.`)
           }
 
+          // MODIFICADO: Ahora traemos también la 'category' actual del socio
           const { data: players, error: playersError } = await supabase
               .from('users')
-              .select('id, account_balance')
+              .select('id, account_balance, category')
               .eq('role', 'player')
               .eq('status', 'active')
           
@@ -93,13 +94,13 @@ export default function AdminFees() {
               method: 'cuota',
               date: new Date().toISOString(),
               status: 'completed',
-              proof_url: automaticConcept
+              proof_url: automaticConcept,
+              category_snapshot: p.category // MODIFICADO: Se guarda la categoría en el snapshot
           }))
 
           const { error: insertError } = await supabase.from('payments').insert(records)
           if (insertError) throw insertError
 
-          // Actualización de saldos mediante bucle (se mantiene igual a tu código original)
           for (const p of players) {
               const currentBalance = p.account_balance || 0
               await supabase.from('users').update({ 
@@ -118,7 +119,7 @@ export default function AdminFees() {
       }
   }
 
-  // 2. DESHACER LOTE - CORREGIDO (Sin bucle manual, usa el Trigger de la DB)
+  // 2. DESHACER LOTE
   const executeDeleteBatch = async () => {
       const batchName = showDeleteModal.batchName
       if (!batchName) return
@@ -127,8 +128,6 @@ export default function AdminFees() {
       setShowDeleteModal({ show: false, batchName: null })
 
       try {
-          // Eliminamos directamente los registros. 
-          // IMPORTANTE: El Trigger en Supabase devolverá el dinero automáticamente.
           const { error: deleteError } = await supabase
             .from('payments')
             .delete()
@@ -151,7 +150,8 @@ export default function AdminFees() {
   const handleSearch = async (term: string) => {
     setSearchTerm(term)
     if (term.length < 3) { setSearchResults([]); return }
-    const { data } = await supabase.from('users').select('id, name, dni, account_balance').eq('role', 'player').or(`name.ilike.%${term}%,dni.ilike.%${term}%`).limit(5)
+    // MODIFICADO: Ahora busca por 'cuil' en lugar de 'dni'
+    const { data } = await supabase.from('users').select('id, name, cuil, account_balance').eq('role', 'player').or(`name.ilike.%${term}%,cuil.ilike.%${term}%`).limit(5)
     setSearchResults(data || [])
   }
 
@@ -188,8 +188,7 @@ export default function AdminFees() {
   }
 
   return (
-    <div className="space-y-6 min-h-screen pb-10 font-sans">
-      {/* ... (El resto del JSX se mantiene idéntico) ... */}
+    <div className="space-y-6 min-h-screen pb-10 font-sans text-left">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">
             Gestión de Cuotas
@@ -206,7 +205,7 @@ export default function AdminFees() {
 
       {activeTab === 'massive' ? (
           <div className="space-y-8 animate-in fade-in">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-3xl relative overflow-hidden">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-3xl relative overflow-hidden text-left">
                   <div className="flex items-center gap-4 mb-6 p-4 bg-red-50 text-red-800 rounded-lg border border-red-100">
                       <div className="bg-white p-2 rounded-full shadow-sm"><Users size={20} className="text-red-500"/></div>
                       <div>
@@ -247,7 +246,7 @@ export default function AdminFees() {
                               <CheckCircle size={20}/> La cuota de este mes ya fue generada.
                           </div>
                       ) : (
-                          <button disabled={loading || !massiveAmount} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition flex justify-center items-center gap-2 shadow-sm disabled:bg-gray-300 disabled:cursor-not-allowed">
+                          <button disabled={loading || !massiveAmount} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition flex justify-center items-center gap-2 shadow-sm disabled:bg-gray-300 disabled:cursor-not-allowed font-black uppercase text-sm">
                               {loading ? <Loader2 className="animate-spin"/> : 'Confirmar y Generar'}
                           </button>
                       )}
@@ -289,7 +288,7 @@ export default function AdminFees() {
               </div>
           </div>
       ) : (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-3xl animate-in fade-in">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 max-w-3xl animate-in fade-in text-left">
               <div className="flex items-center gap-4 mb-6 p-4 bg-blue-50 text-blue-800 rounded-lg border border-blue-100">
                   <div className="bg-white p-2 rounded-full shadow-sm"><Info size={20} className="text-blue-500"/></div>
                   <div>
@@ -302,10 +301,10 @@ export default function AdminFees() {
                 {!manualUser ? (
                     <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Buscar Jugador</label>
-                        <div className="relative"><Search className="absolute left-3 top-3.5 text-gray-400" size={18}/><input type="text" className="w-full pl-10 p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-gray-900" placeholder="Nombre o DNI..." value={searchTerm} onChange={e => handleSearch(e.target.value)}/></div>
+                        <div className="relative"><Search className="absolute left-3 top-3.5 text-gray-400" size={18}/><input type="text" className="w-full pl-10 p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 font-medium text-gray-900" placeholder="Nombre o CUIL..." value={searchTerm} onChange={e => handleSearch(e.target.value)}/></div>
                         {searchResults.length > 0 && (
                             <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden shadow-lg">{searchResults.map(u => (
-                                <div key={u.id} onClick={() => {setManualUser(u); setSearchTerm(''); setSearchResults([])}} className="p-3 bg-white hover:bg-gray-50 cursor-pointer border-b last:border-0 flex justify-between items-center group"><span className="font-medium text-gray-800 group-hover:text-indigo-700 transition">{u.name}</span><span className={`text-xs font-bold px-2 py-0.5 rounded ${u.account_balance < 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>${u.account_balance}</span></div>
+                                <div key={u.id} onClick={() => {setManualUser(u); setSearchTerm(''); setSearchResults([])}} className="p-3 bg-white hover:bg-gray-50 cursor-pointer border-b last:border-0 flex justify-between items-center group text-left"><span className="font-medium text-gray-800 group-hover:text-indigo-700 transition">{u.name}</span><span className={`text-xs font-bold px-2 py-0.5 rounded ${u.account_balance < 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>${u.account_balance}</span></div>
                             ))}</div>
                         )}
                     </div>
@@ -327,15 +326,14 @@ export default function AdminFees() {
                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Monto</label><div className="relative"><span className="absolute left-3 top-3.5 text-gray-400 font-bold text-lg">$</span><input type="number" required min="1" className="w-full pl-9 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-lg text-gray-900" value={manualAmount} onChange={e => setManualAmount(e.target.value)}/></div></div>
                         <div><label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Motivo</label><input type="text" required placeholder={manualType === 'debt' ? 'Ej: Camiseta' : 'Ej: Descuento'} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-gray-900" value={manualNote} onChange={e => setManualNote(e.target.value)}/></div>
                     </div>
-                    <button disabled={loading || !manualUser} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition flex justify-center items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm">{loading ? <Loader2 className="animate-spin"/> : 'Aplicar Ajuste'}</button>
+                    <button disabled={loading || !manualUser} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition flex justify-center items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm font-black uppercase text-sm">{loading ? <Loader2 className="animate-spin"/> : 'Aplicar Ajuste'}</button>
                 </form>
               </div>
           </div>
       )}
 
-      {/* MODALES Y NOTIFICACIÓN (SIN CAMBIOS) */}
       {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in text-left">
             <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full animate-in zoom-in-95 relative overflow-hidden">
                 <div className="flex flex-col items-center text-center">
                     <div className="h-16 w-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4"><AlertTriangle size={32}/></div>
@@ -354,7 +352,7 @@ export default function AdminFees() {
       )}
 
       {showDeleteModal.show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in text-left">
             <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full animate-in zoom-in-95 relative overflow-hidden">
                 <div className="flex flex-col items-center text-center">
                     <div className="h-16 w-16 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center mb-4"><Trash2 size={32}/></div>
@@ -373,7 +371,7 @@ export default function AdminFees() {
       )}
       
       {notification.show && (
-            <div className={`fixed bottom-8 right-8 z-[60] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 border-l-4 ${notification.type === 'success' ? 'bg-white border-green-500' : 'bg-white border-red-500'}`}>
+            <div className={`fixed bottom-8 right-8 z-[60] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 border-l-4 ${notification.type === 'success' ? 'bg-white border-green-500' : 'bg-white border-red-500'} text-left`}>
                 {notification.type === 'success' ? <CheckCircle size={24} className="text-green-500"/> : <AlertTriangle size={24} className="text-red-500"/>}
                 <div><h4 className="font-bold text-sm text-gray-900">{notification.type === 'success' ? '¡Hecho!' : 'Error'}</h4><p className="text-gray-500 text-xs">{notification.message}</p></div>
             </div>
