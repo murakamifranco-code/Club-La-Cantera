@@ -122,7 +122,12 @@ export default function InboxPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {reviews.map((review) => (
+            {reviews.map((review) => {
+                // LÓGICA PARA PROCESAR MÚLTIPLES PAGADORES
+                const payerNames = review.users?.payer_name ? review.users.payer_name.split(' / ') : [];
+                const payerCuils = review.users?.payer_cuil ? review.users.payer_cuil.split(' / ') : [];
+
+                return (
                 <div key={review.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col hover:shadow-md transition text-left">
                     <div className="p-4 border-b bg-gray-50 flex justify-between items-start">
                         <div>
@@ -136,15 +141,18 @@ export default function InboxPage() {
                         </span>
                     </div>
 
-                    {/* NUEVA SECCIÓN: Datos del Responsable de Pago (solo si existen) */}
-                    {review.users?.payer_name && (
-                      <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100">
-                        <p className="text-[10px] font-black text-indigo-700 uppercase tracking-tight flex items-center gap-1.5">
-                          <CreditCard size={12}/> Paga: {review.users.payer_name}
+                    {/* SECCIÓN PAGADORES: Se visualiza uno por fila si existen */}
+                    {payerNames.length > 0 && (
+                      <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100 space-y-1">
+                        <p className="text-[10px] font-black text-indigo-700 uppercase tracking-tight flex items-center gap-1.5 mb-1">
+                          <CreditCard size={12}/> Pagadores registrados:
                         </p>
-                        <p className="text-[9px] font-bold text-indigo-500 ml-4">
-                          CUIL: {review.users.payer_cuil || 'Sin CUIL'}
-                        </p>
+                        {payerNames.map((name: string, idx: number) => (
+                          <div key={idx} className="text-[9px] font-bold text-indigo-600 border-l-2 border-indigo-200 pl-2 ml-1">
+                            <span className="uppercase">{name}</span>
+                            <span className="text-indigo-400 block">CUIL: {payerCuils[idx] || 'Sin CUIL'}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
 
@@ -176,7 +184,8 @@ export default function InboxPage() {
                         </button>
                     </div>
                 </div>
-            ))}
+                )
+            })}
         </div>
       )}
 
