@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import { Check, X, Eye, Loader2, Calendar, FileText, AlertTriangle, CheckCircle, XCircle, ExternalLink } from 'lucide-react'
+import { Check, X, Eye, Loader2, Calendar, FileText, AlertTriangle, CheckCircle, XCircle, ExternalLink, CreditCard } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 
 export default function InboxPage() {
@@ -21,7 +21,8 @@ export default function InboxPage() {
     setLoading(true)
     const { data } = await supabase
       .from('payments')
-      .select('*, users(name, email)')
+      // CAMBIO: Se agregaron payer_name y payer_cuil a la consulta relacional con users
+      .select('*, users(name, email, payer_name, payer_cuil)')
       .eq('status', 'pending')
       .order('date', { ascending: false })
     
@@ -72,7 +73,6 @@ export default function InboxPage() {
               else if (age <= 18) calculatedCategory = 'Juveniles'
 
               // 2. APROBAR E INYECTAR SNAPSHOT
-              // Se elimina la actualización manual del balance para dejar que el Trigger de DB actúe solo una vez.
               const { error: updateError } = await supabase
                   .from('payments')
                   .update({ 
@@ -110,7 +110,7 @@ export default function InboxPage() {
   if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600" size={40}/></div>
 
   return (
-    <div className="space-y-6 relative min-h-screen">
+    <div className="space-y-6 relative min-h-screen text-left">
       <h1 className="text-3xl font-black text-gray-800 uppercase italic">Bandeja de Entrada</h1>
       <p className="text-gray-500 font-medium">Comprobantes pendientes de revisión.</p>
 
@@ -123,7 +123,7 @@ export default function InboxPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {reviews.map((review) => (
-                <div key={review.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col hover:shadow-md transition">
+                <div key={review.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col hover:shadow-md transition text-left">
                     <div className="p-4 border-b bg-gray-50 flex justify-between items-start">
                         <div>
                             <h3 className="font-bold text-gray-900">{review.users?.name || 'Usuario desconocido'}</h3>
@@ -135,6 +135,18 @@ export default function InboxPage() {
                             ${review.amount.toLocaleString()}
                         </span>
                     </div>
+
+                    {/* NUEVA SECCIÓN: Datos del Responsable de Pago (solo si existen) */}
+                    {review.users?.payer_name && (
+                      <div className="px-4 py-2 bg-indigo-50 border-b border-indigo-100">
+                        <p className="text-[10px] font-black text-indigo-700 uppercase tracking-tight flex items-center gap-1.5">
+                          <CreditCard size={12}/> Paga: {review.users.payer_name}
+                        </p>
+                        <p className="text-[9px] font-bold text-indigo-500 ml-4">
+                          CUIL: {review.users.payer_cuil || 'Sin CUIL'}
+                        </p>
+                      </div>
+                    )}
 
                     <div className="p-4 flex-1 flex items-center justify-center bg-white">
                         {review.proof_url ? (
@@ -171,7 +183,7 @@ export default function InboxPage() {
       {/* MODAL DE CONFIRMACIÓN */}
       {confirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in zoom-in-95">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in zoom-in-95 text-left">
                 <div className="flex flex-col items-center text-center">
                     <div className={`h-16 w-16 rounded-full flex items-center justify-center mb-4 ${confirmModal.type === 'approve' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                         {confirmModal.type === 'approve' ? <CheckCircle size={32}/> : <AlertTriangle size={32}/>}
@@ -183,7 +195,7 @@ export default function InboxPage() {
                             : `El comprobante será marcado como rechazado.`
                         }
                     </p>
-                    <div className="grid grid-cols-2 gap-3 w-full">
+                    <div className="grid grid-cols-2 gap-3 w-full text-left">
                         <button disabled={processing} onClick={() => setConfirmModal(null)} className="py-3 px-4 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition">Cancelar</button>
                         <button disabled={processing} onClick={executeAction} className={`py-3 px-4 text-white font-bold rounded-xl shadow-lg transition flex justify-center items-center gap-2 ${confirmModal.type === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}>
                             {processing ? <Loader2 className="animate-spin"/> : (confirmModal.type === 'approve' ? 'Sí, Aprobar' : 'Sí, Rechazar')}
@@ -196,13 +208,13 @@ export default function InboxPage() {
 
       {/* MODAL VISOR */}
       {previewUrl && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setPreviewUrl(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm text-left" onClick={() => setPreviewUrl(null)}>
               <div 
-                  className={`relative bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] ${fileType === 'pdf' ? 'w-full max-w-4xl h-[80vh]' : 'w-auto max-w-5xl h-auto'}`} 
+                  className={`relative bg-white rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] text-left ${fileType === 'pdf' ? 'w-full max-w-4xl h-[80vh]' : 'w-auto max-w-5xl h-auto'}`} 
                   onClick={e => e.stopPropagation()}
               >
-                  <div className="p-3 bg-gray-100 border-b border-gray-200 flex justify-between items-center shrink-0">
-                       <div className="flex items-center gap-3">
+                  <div className="p-3 bg-gray-100 border-b border-gray-200 flex justify-between items-center shrink-0 text-left">
+                       <div className="flex items-center gap-3 text-left">
                           <h3 className="font-bold text-gray-800 text-sm uppercase">Comprobante</h3>
                           <a href={previewUrl} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline flex items-center gap-1 text-xs font-bold bg-indigo-50 px-2 py-1 rounded">
                              <ExternalLink size={12}/> Abrir original
@@ -212,7 +224,7 @@ export default function InboxPage() {
                           <X size={20}/>
                       </button>
                   </div>
-                  <div className="flex-1 bg-gray-200 relative flex items-center justify-center p-2 overflow-auto">
+                  <div className="flex-1 bg-gray-200 relative flex items-center justify-center p-2 overflow-auto text-left">
                       {fileType === 'image' ? (
                           <img 
                             src={previewUrl} 
@@ -233,9 +245,9 @@ export default function InboxPage() {
 
       {/* TOAST */}
       {notification.show && (
-            <div className={`fixed bottom-8 right-8 z-[60] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 border-l-8 ${notification.type === 'success' ? 'bg-white border-green-500' : 'bg-white border-red-500'}`}>
+            <div className="fixed bottom-8 right-8 z-[60] flex items-center gap-3 px-6 py-4 rounded-xl shadow-2xl animate-in slide-in-from-bottom-5 border-l-8 bg-white border-green-500 text-left">
                 <div className={`${notification.type === 'success' ? 'text-green-500' : 'text-red-500'}`}>{notification.type === 'success' ? <CheckCircle size={28} /> : <XCircle size={28} />}</div>
-                <div><h4 className={`font-black uppercase text-xs tracking-wider ${notification.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{notification.type === 'success' ? '¡Éxito!' : 'Atención'}</h4><p className="font-bold text-gray-800 text-sm">{notification.message}</p></div>
+                <div className="text-left"><h4 className={`font-black uppercase text-xs tracking-wider ${notification.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>{notification.type === 'success' ? '¡Éxito!' : 'Atención'}</h4><p className="font-bold text-gray-800 text-sm">{notification.message}</p></div>
             </div>
       )}
     </div>
