@@ -22,6 +22,22 @@ export default function Register() {
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
 
+  // Función para formatear CUIL automáticamente
+  const handleCuilChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, ""); // Solo números
+    if (value.length > 11) value = value.slice(0, 11); // Máximo 11 dígitos
+
+    let formatted = value;
+    if (value.length > 2) {
+      formatted = `${value.slice(0, 2)}-${value.slice(2)}`;
+    }
+    if (value.length > 10) {
+      formatted = `${formatted.slice(0, 11)}-${value.slice(10, 11)}`;
+    }
+
+    setFormData({ ...formData, cuil: formatted });
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -137,7 +153,14 @@ export default function Register() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CUIL</label>
-                    <input type="text" required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" placeholder="Ej: 20-44667874-5" value={formData.cuil} onChange={(e) => setFormData({...formData, cuil: e.target.value})} />
+                    <input 
+                      type="text" 
+                      required 
+                      className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" 
+                      placeholder="20-44667874-5" 
+                      value={formData.cuil} 
+                      onChange={handleCuilChange} 
+                    />
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><Calendar size={14}/> Fecha de Nacimiento</label>
