@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
 import { DollarSign, Search, CreditCard, Loader2, Calendar, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
-import { format, parseISO, startOfMonth, subMonths, startOfYear, endOfMonth, isWithinInterval } from 'date-fns'
+import { format, parseISO, startOfMonth, subMonths, startOfYear, endOfMonth } from 'date-fns'
 
 export default function AdminDashboard() {
   const [dateFilter, setDateFilter] = useState<'current' | 'last' | 'year'>('current')
+  
   const [stats, setStats] = useState({ revenue: 0, debt: 0 })
   const [recentPayments, setRecentPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -22,6 +23,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchDashboardData()
   }, [dateFilter])
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+      setNotification({ show: true, type, message })
+      setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000)
+  }
 
   const fetchDashboardData = async () => {
     setLoading(true)
@@ -42,27 +48,23 @@ export default function AdminDashboard() {
         endDate = now
     }
 
-    // Traemos TODOS los movimientos del periodo seleccionado para reconstruir la historia
     const { data: movements } = await supabase.from('payments')
       .select('amount, method, date')
       .gte('date', startDate.toISOString())
       .lte('date', endDate.toISOString())
 
-    // 1. RECAUDACIÓN REAL DEL PERIODO (Solo lo que entró por caja/transferencia)
     const revenue = movements?.filter(m => 
       m.amount > 0 && (m.method === 'cash' || m.method === 'transfer')
     ).reduce((acc, curr) => acc + curr.amount, 0) || 0;
 
-    // 2. MOROSIDAD GENERADA EN EL PERIODO
-    // Aquí calculamos el balance neto de los movimientos del mes.
-    // Si las cuotas/ajustes negativos superan a los pagos/ajustes positivos, hay morosidad.
     const periodBalance = movements?.reduce((acc, curr) => acc + curr.amount, 0) || 0;
-    
-    // Si el balance es negativo, lo convertimos a positivo para mostrarlo como "deuda generada"
     const periodDebt = periodBalance < 0 ? Math.abs(periodBalance) : 0;
 
+    // CAMBIO SOLICITADO: Solo los últimos 5 pagos (ingresos de dinero reales)
     const { data: recent } = await supabase.from('payments')
       .select('*, users(name)')
+      .gt('amount', 0)
+      .in('method', ['cash', 'transfer'])
       .order('date', { ascending: false })
       .limit(5)
 
@@ -74,51 +76,45 @@ export default function AdminDashboard() {
     setLoading(false)
   }
 
-  // ... (El resto de las funciones handleSearch, handleQuickPay, etc., se mantienen igual que me pasaste)
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
-    setNotification({ show: true, type, message })
-    setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000)
+  const handleSearch = async (term: string) => {
+      setSearchTerm(term)
+      if (term.length < 3) { setSearchResults([]); return }
+      const { data } = await supabase.from('users').select('id, name, dni, account_balance, category, birth_date').eq('role', 'player').or(`name.ilike.%${term}%,dni.ilike.%${term}%`).limit(5)
+      setSearchResults(data || [])
   }
 
   const selectUser = (user: any) => { setQuickPayUser(user); setSearchTerm(''); setSearchResults([]) }
 
-  const handleSearch = async (term: string) => {
-    setSearchTerm(term)
-    if (term.length < 3) { setSearchResults([]); return }
-    const { data } = await supabase.from('users').select('id, name, dni, account_balance, category, birth_date').eq('role', 'player').or(`name.ilike.%${term}%,dni.ilike.%${term}%`).limit(5)
-    setSearchResults(data || [])
-  }
-
   const handleQuickPay = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!quickPayUser || !quickPayAmount) return
-    setProcessing(true)
-    try {
-        const amount = parseFloat(quickPayAmount)
-        const birthYear = quickPayUser.birth_date ? parseISO(quickPayUser.birth_date).getFullYear() : 0
-        const currentYear = new Date().getFullYear()
-        const age = currentYear - birthYear
-        
-        let automaticCategory = 'Mayores'
-        if (age < 13) automaticCategory = 'Infantiles'
-        else if (age <= 14) automaticCategory = 'Menores'
-        else if (age <= 16) automaticCategory = 'Cadetes'
-        else if (age <= 18) automaticCategory = 'Juveniles'
+      e.preventDefault()
+      if (!quickPayUser || !quickPayAmount) return
+      setProcessing(true)
+      try {
+          const amount = parseFloat(quickPayAmount)
 
-        const { error } = await supabase.from('payments').insert({ 
-          user_id: quickPayUser.id, 
-          amount: amount, 
-          method: 'cash', 
-          date: new Date().toISOString(), 
-          status: 'completed',
-          category_snapshot: automaticCategory 
-        })
+          const birthYear = quickPayUser.birth_date ? parseISO(quickPayUser.birth_date).getFullYear() : 0
+          const currentYear = new Date().getFullYear()
+          const age = currentYear - birthYear
+          
+          let automaticCategory = 'Mayores'
+          if (age < 13) automaticCategory = 'Infantiles'
+          else if (age <= 14) automaticCategory = 'Menores'
+          else if (age <= 16) automaticCategory = 'Cadetes'
+          else if (age <= 18) automaticCategory = 'Juveniles'
 
-        if (error) throw error
-        showToast(`Pago de $${amount} registrado para ${quickPayUser.name}`, 'success')
-        setQuickPayUser(null); setQuickPayAmount(''); fetchDashboardData() 
-    } catch (error) { showToast('Error al registrar pago.', 'error') } finally { setProcessing(false) }
+          const { error } = await supabase.from('payments').insert({ 
+            user_id: quickPayUser.id, 
+            amount: amount, 
+            method: 'cash', 
+            date: new Date().toISOString(), 
+            status: 'completed',
+            category_snapshot: automaticCategory 
+          })
+
+          if (error) throw error
+          showToast(`Pago de $${amount} registrado para ${quickPayUser.name}`, 'success')
+          setQuickPayUser(null); setQuickPayAmount(''); fetchDashboardData() 
+      } catch (error) { showToast('Error al registrar pago.', 'error') } finally { setProcessing(false) }
   }
 
   const periodLabel = dateFilter === 'current' ? 'Este Mes' : (dateFilter === 'last' ? 'Mes Anterior' : 'Año Actual')
@@ -127,6 +123,8 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 font-sans text-left">
+      
+      {/* HEADER + FILTRO */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 text-left">
         <div className="text-left">
             <h1 className="text-2xl font-bold text-gray-800">Panel de Control</h1>
@@ -142,6 +140,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* TARJETAS RESTANTES - AJUSTADAS A 2 COLUMNAS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-left">
               <div className="flex justify-between items-start text-left">
@@ -151,7 +150,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="p-2 bg-green-50 text-green-600 rounded-lg"><DollarSign size={20}/></div>
               </div>
-              <p className="text-xs text-green-600 mt-4 font-medium flex items-center gap-1 text-left">Cobrado en {periodLabel}</p>
+              <p className="text-xs text-green-600 mt-4 font-medium flex items-center gap-1 text-left">Cobrado en este periodo</p>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-left">
@@ -164,7 +163,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="p-2 bg-red-50 text-red-500 rounded-lg"><AlertTriangle size={20}/></div>
               </div>
-              <p className="text-xs text-gray-400 mt-4 font-medium text-left">Deuda no cubierta en {periodLabel}</p>
+              <p className="text-xs text-gray-400 mt-4 font-medium text-left">Suma de deudas actuales</p>
           </div>
       </div>
 
