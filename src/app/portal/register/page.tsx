@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Loader2, AlertCircle, ShieldCheck, X, FileText, User, HeartPulse, ShieldAlert, MapPin, Phone, Calendar, Eye, EyeOff, CreditCard } from 'lucide-react'
+import { Loader2, AlertCircle, ShieldCheck, X, FileText, User, HeartPulse, ShieldAlert, MapPin, Phone, Calendar, Eye, EyeOff, CreditCard, Plus, Trash2 } from 'lucide-react'
 
 export default function Register() {
   const router = useRouter()
@@ -12,9 +12,11 @@ export default function Register() {
   const [formData, setFormData] = useState({
       email: '', password: '', name: '', cuil: '', phone: '',
       birth_date: '', address: '', gender: '',
-      emergency_contact_name: '', emergency_contact: '', medical_notes: '',
-      payer_name: '', payer_cuil: '' 
+      emergency_contact_name: '', emergency_contact: '', medical_notes: ''
   })
+
+  // ESTADO PARA PAGADORES DINÁMICOS
+  const [payers, setPayers] = useState([{ name: '', cuil: '' }])
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,8 +31,8 @@ export default function Register() {
     let val = value.replace(/\D/g, ""); 
     if (val.length > 11) val = val.slice(0, 11);
     let formatted = val;
-    if (val.length > 2) formatted = `${val.slice(0, 2)}-${val.slice(2)}`;
-    if (val.length > 10) formatted = `${formatted.slice(0, 11)}-${val.slice(10, 11)}`;
+    if (value.length > 2) formatted = `${val.slice(0, 2)}-${val.slice(2)}`;
+    if (value.length > 10) formatted = `${formatted.slice(0, 11)}-${val.slice(10, 11)}`;
     return formatted;
   }
 
@@ -38,8 +40,22 @@ export default function Register() {
     setFormData({ ...formData, cuil: formatCuil(e.target.value) });
   }
 
-  const handlePayerCuilChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, payer_cuil: formatCuil(e.target.value) });
+  // MANEJO DE FILAS DINÁMICAS
+  const addPayerRow = () => {
+    setPayers([...payers, { name: '', cuil: '' }])
+  }
+
+  const removePayerRow = (index: number) => {
+    if (payers.length > 1) {
+      const newPayers = payers.filter((_, i) => i !== index)
+      setPayers(newPayers)
+    }
+  }
+
+  const handlePayerChange = (index: number, field: 'name' | 'cuil', value: string) => {
+    const newPayers = [...payers]
+    newPayers[index][field] = field === 'cuil' ? formatCuil(value) : value
+    setPayers(newPayers)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,6 +78,10 @@ export default function Register() {
       if (authError) throw authError
 
       if (authData.user) {
+        // UNIFICAR PAGADORES EN TEXTO PARA LA DB
+        const combinedPayerNames = isThirdPartyPayer ? payers.map(p => p.name).filter(n => n !== "").join(' / ') : null
+        const combinedPayerCuils = isThirdPartyPayer ? payers.map(p => p.cuil).filter(c => c !== "").join(' / ') : null
+
         const { error: profileError } = await supabase.from('users').insert({
           id: authData.user.id,
           email: formData.email,
@@ -78,8 +98,8 @@ export default function Register() {
           emergency_contact_name: formData.emergency_contact_name,
           emergency_contact: formData.emergency_contact,
           medical_notes: formData.medical_notes,
-          payer_name: isThirdPartyPayer ? formData.payer_name : null,
-          payer_cuil: isThirdPartyPayer ? formData.payer_cuil : null
+          payer_name: combinedPayerNames,
+          payer_cuil: combinedPayerCuils
         })
 
         if (profileError) throw profileError
@@ -222,29 +242,50 @@ export default function Register() {
               </div>
 
               {isThirdPartyPayer && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300 text-left">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Pagador <span className="text-red-500">*</span></label>
-                        <input 
-                          type="text" 
-                          required={isThirdPartyPayer} 
-                          className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" 
-                          placeholder="Ej: Marta García" 
-                          value={formData.payer_name} 
-                          onChange={(e) => setFormData({...formData, payer_name: e.target.value})} 
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CUIL del Pagador <span className="text-red-500">*</span></label>
-                        <input 
-                          type="text" 
-                          required={isThirdPartyPayer} 
-                          className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" 
-                          placeholder="20-XXXXXXXX-X" 
-                          value={formData.payer_cuil} 
-                          onChange={handlePayerCuilChange} 
-                        />
-                    </div>
+                <div className="space-y-4 animate-in fade-in duration-300">
+                    {payers.map((payer, index) => (
+                      <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end bg-gray-50/50 p-4 rounded-2xl border border-gray-100 relative">
+                        <div>
+                          <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Nombre Pagador {index + 1} <span className="text-red-500">*</span></label>
+                          <input 
+                            type="text" 
+                            required 
+                            className="w-full p-2.5 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-sm text-gray-900" 
+                            placeholder="Nombre completo" 
+                            value={payer.name} 
+                            onChange={(e) => handlePayerChange(index, 'name', e.target.value)} 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">CUIL Pagador {index + 1} <span className="text-red-500">*</span></label>
+                          <input 
+                            type="text" 
+                            required 
+                            className="w-full p-2.5 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-sm text-gray-900" 
+                            placeholder="20-XXXXXXXX-X" 
+                            value={payer.cuil} 
+                            onChange={(e) => handlePayerChange(index, 'cuil', e.target.value)} 
+                          />
+                        </div>
+                        {payers.length > 1 && (
+                          <button 
+                            type="button" 
+                            onClick={() => removePayerRow(index)} 
+                            className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition"
+                          >
+                            <Trash2 size={18}/>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    
+                    <button 
+                      type="button" 
+                      onClick={addPayerRow} 
+                      className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-black text-xs uppercase hover:bg-indigo-100 transition border border-indigo-200"
+                    >
+                      <Plus size={16}/> Agregar otro pagador
+                    </button>
                 </div>
               )}
           </div>
@@ -306,7 +347,7 @@ export default function Register() {
                     <p>Al aceptar, usted presta su <strong>consentimiento expreso e informado</strong> para el tratamiento de sus datos personales y sensibles conforme a la Ley 25.326 de Protección de Datos Personales.</p>
                 </div>
                 <div className="p-4 border-t bg-gray-50 text-center">
-                    <button onClick={() => {setAcceptedTerms(true); setShowTermsModal(false)}} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">Entendido, Aceptar</button>
+                  <button onClick={() => {setAcceptedTerms(true); setShowTermsModal(false)}} className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition">Entendido, Aceptar</button>
                 </div>
             </div>
         </div>
