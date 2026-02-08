@@ -88,11 +88,12 @@ export default function PortalLogin() {
 
     try {
       let emailToUse = identifier.trim()
-      const isDni = /^\d+$/.test(emailToUse)
+      // Detectar si el identificador contiene números o guiones (formato CUIL)
+      const isCuilFormat = /^[\d-]+$/.test(emailToUse)
 
-      if (isDni) {
-          const { data: userData } = await supabase.from('users').select('email').eq('dni', emailToUse).maybeSingle()
-          if (!userData) throw new Error('No existe usuario con ese DNI.')
+      if (isCuilFormat) {
+          const { data: userData } = await supabase.from('users').select('email').eq('cuil', emailToUse).maybeSingle()
+          if (!userData) throw new Error('No existe usuario con ese CUIL.')
           emailToUse = userData.email
       }
 
@@ -108,10 +109,11 @@ export default function PortalLogin() {
             .eq('email', emailToUse)
             .maybeSingle()
 
-          if (socioDb && socioDb.dni === password) {
+          // Si el socio existe y usa su CUIL como contraseña (migración inicial)
+          if (socioDb && socioDb.cuil === password) {
               const { data: newAuth, error: signUpError } = await supabase.auth.signUp({
                   email: emailToUse,
-                  password: socioDb.dni,
+                  password: socioDb.cuil,
                   options: { data: { name: socioDb.name, role: 'player' } }
               })
 
@@ -121,7 +123,7 @@ export default function PortalLogin() {
                   await supabase.from('users').update({ id: newAuth.user.id }).eq('email', emailToUse)
                   const { error: finalRetry } = await supabase.auth.signInWithPassword({
                     email: emailToUse,
-                    password: socioDb.dni
+                    password: socioDb.cuil
                   })
                   if (!finalRetry) { window.location.reload(); return; }
               }
@@ -221,14 +223,14 @@ export default function PortalLogin() {
         )}
         <form onSubmit={handleLogin} className="space-y-5">
           <div>
-            <label className="block text-xs font-black text-gray-500 uppercase mb-1 ml-1">Email o DNI</label>
+            <label className="block text-xs font-black text-gray-500 uppercase mb-1 ml-1">Email o CUIL</label>
             <div className="relative">
-                {/^\d+$/.test(identifier) && identifier.length > 0 ? (
+                {/^[\d-]+$/.test(identifier) && identifier.length > 0 ? (
                    <CreditCard className="absolute left-4 top-3.5 text-indigo-600" size={20}/>
                 ) : (
                    <User className="absolute left-4 top-3.5 text-gray-400" size={20}/>
                 )}
-                <input type="text" required className="w-full pl-12 p-3.5 border-2 border-gray-200 rounded-xl outline-none focus:border-blue-600 focus:ring-0 font-bold text-gray-800 transition-all placeholder-gray-300" placeholder="Ej: 22333444 o tu@email.com" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
+                <input type="text" required className="w-full pl-12 p-3.5 border-2 border-gray-200 rounded-xl outline-none focus:border-blue-600 focus:ring-0 font-bold text-gray-800 transition-all placeholder-gray-300" placeholder="Ej: 20-44667874-5 o tu@email.com" value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
             </div>
           </div>
           <div>
