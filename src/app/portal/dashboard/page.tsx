@@ -118,22 +118,30 @@ export default function PortalDashboard() {
           let publicUrl = null
           if (file) {
               const fileName = `${user.id}/${Date.now()}.${file.name.split('.').pop()}`
-              const { error } = await supabase.storage.from('receipts').upload(fileName, file)
-              if (!error) publicUrl = supabase.storage.from('receipts').getPublicUrl(fileName).data.publicUrl
+              const { error: uploadError } = await supabase.storage.from('receipts').upload(fileName, file)
+              if (uploadError) throw uploadError
+              publicUrl = supabase.storage.from('receipts').getPublicUrl(fileName).data.publicUrl
           }
-          await supabase.from('payments').insert({
+          
+          // ARREGLO PARA QUE EL PAGO SE MUESTRE: Se agregan validaciones de nulos
+          const { error: insertError } = await supabase.from('payments').insert({
               user_id: user.id, 
               amount: parseFloat(amount), 
               method: 'transfer', 
               status: 'pending', 
               date: new Date().toISOString(), 
               proof_url: publicUrl,
-              payer_name: user.payer_name, // Envía el dato del tutor al pago
-              payer_cuil: user.payer_cuil  // Envía el dato del tutor al pago
+              payer_name: user?.payer_name || null,
+              payer_cuil: user?.payer_cuil || null
           })
+
+          if (insertError) throw insertError
+
           setUploadSuccess(true); setAmount(''); setFile(null)
           setTimeout(() => { setUploadSuccess(false); setActiveTab('dashboard'); fetchUserData() }, 2000)
-      } catch (error) { alert("Error.") } finally { setUploading(false) }
+      } catch (error: any) { 
+          alert("Error al enviar el comprobante: " + error.message) 
+      } finally { setUploading(false) }
   }
 
   const handleOpenPreview = (url: string) => { setFileType(url.toLowerCase().includes('.pdf') ? 'pdf' : 'image'); setPreviewUrl(url) }
