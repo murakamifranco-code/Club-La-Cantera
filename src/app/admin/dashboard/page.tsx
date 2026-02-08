@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import { DollarSign, Search, CreditCard, Loader2, Calendar, CheckCircle, XCircle, AlertTriangle, Users } from 'lucide-react'
+import { DollarSign, Search, CreditCard, Loader2, Calendar, CheckCircle, XCircle, AlertTriangle, Users, Filter } from 'lucide-react'
 import { format, parseISO, startOfMonth, subMonths, startOfYear, endOfMonth } from 'date-fns'
 
 export default function AdminDashboard() {
   const [dateFilter, setDateFilter] = useState<'current' | 'last' | 'year'>('current')
+  // NUEVOS ESTADOS DE FILTRO
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [genderFilter, setGenderFilter] = useState<string>('all')
   
   const [stats, setStats] = useState({ revenue: 0, debt: 0, debtorCount: 0 })
   const [recentPayments, setRecentPayments] = useState<any[]>([])
@@ -22,7 +25,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData()
-  }, [dateFilter])
+  }, [dateFilter, categoryFilter, genderFilter])
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
       setNotification({ show: true, type, message })
@@ -48,24 +51,41 @@ export default function AdminDashboard() {
         endDate = now
     }
 
+    // Traemos movimientos con datos de usuario para filtrar por categoria/sexo
     const { data: movements } = await supabase.from('payments')
-      .select('user_id, amount, method, date')
+      .select('user_id, amount, method, date, category_snapshot, users(gender)')
       .gte('date', startDate.toISOString())
       .lte('date', endDate.toISOString())
 
+    // Aplicar filtros sobre los movimientos (Usa el snapshot para categoría histórica)
+    const filteredMovements = movements?.filter(m => {
+      const user = m.users as any;
+      const matchesCategory = categoryFilter === 'all' || m.category_snapshot === categoryFilter;
+      
+      let matchesGender = genderFilter === 'all';
+      if (!matchesGender && user?.gender) {
+          const dbGender = user.gender.toLowerCase();
+          if (genderFilter === 'male') matchesGender = (dbGender === 'male' || dbGender === 'm' || dbGender === 'masculino');
+          if (genderFilter === 'female') matchesGender = (dbGender === 'female' || dbGender === 'f' || dbGender === 'femenino');
+          if (genderFilter === 'other') matchesGender = (dbGender === 'other' || dbGender === 'x' || dbGender === 'otro');
+      }
+      
+      return matchesCategory && matchesGender;
+    }) || [];
+
     // 1. RECAUDACIÓN
-    const revenue = movements?.filter(m => 
+    const revenue = filteredMovements.filter(m => 
       m.amount > 0 && (m.method === 'cash' || m.method === 'transfer')
     ).reduce((acc, curr) => acc + curr.amount, 0) || 0;
 
-    // 2. MOROSIDAD Y CANTIDAD DE MOROSOS (Cálculo individual por socio)
+    // 2. MOROSIDAD Y CANTIDAD DE MOROSOS (Cálculo individual)
     let periodDebt = 0;
     let debtors = 0;
     
-    if (movements && movements.length > 0) {
+    if (filteredMovements.length > 0) {
       const balanceByUser: { [key: string]: number } = {};
       
-      movements.forEach(m => {
+      filteredMovements.forEach(m => {
         if (!balanceByUser[m.user_id]) balanceByUser[m.user_id] = 0;
         balanceByUser[m.user_id] += m.amount;
       });
@@ -73,7 +93,7 @@ export default function AdminDashboard() {
       Object.values(balanceByUser).forEach(balance => {
         if (balance < 0) {
           periodDebt += Math.abs(balance);
-          debtors++; // Sumamos uno a la cuenta de morosos
+          debtors++;
         }
       });
     }
@@ -109,6 +129,7 @@ export default function AdminDashboard() {
       setProcessing(true)
       try {
           const amount = parseFloat(quickPayAmount)
+
           const birthYear = quickPayUser.birth_date ? parseISO(quickPayUser.birth_date).getFullYear() : 0
           const currentYear = new Date().getFullYear()
           const age = currentYear - birthYear
@@ -140,14 +161,40 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6 font-sans text-left">
+      
+      {/* HEADER + FILTRO */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 text-left">
         <div className="text-left">
             <h1 className="text-2xl font-bold text-gray-800">Panel de Control</h1>
             <p className="text-gray-500 text-sm">Resumen de movimientos: <span className="font-semibold text-indigo-600">{periodLabel}</span></p>
         </div>
-        <div className="bg-white border border-gray-300 rounded-lg flex items-center px-3 py-2 shadow-sm hover:border-gray-400 transition text-left">
-            <Calendar size={16} className="text-gray-500 mr-2"/>
-            <select className="bg-transparent font-medium text-gray-600 outline-none text-sm cursor-pointer" value={dateFilter} onChange={(e) => setDateFilter(e.target.value as any)}>
+
+        {/* BARRA DE FILTROS */}
+        <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded-xl border border-gray-200 shadow-sm text-left">
+            <div className="flex items-center gap-2 px-2 text-gray-400 border-r border-gray-100 mr-1 text-left">
+                <Filter size={14}/>
+                <span className="text-[10px] font-bold uppercase text-left">Filtros</span>
+            </div>
+
+            <select className="bg-gray-50 font-bold text-gray-600 outline-none text-xs cursor-pointer py-1.5 px-3 rounded-lg border border-gray-100 focus:border-indigo-300 text-left" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                <option value="all">Todas las Categorías</option>
+                <option value="Infantiles">Infantiles</option>
+                <option value="Menores">Menores</option>
+                <option value="Cadetes">Cadetes</option>
+                <option value="Juveniles">Juveniles</option>
+                <option value="Mayores">Mayores</option>
+            </select>
+
+            <select className="bg-gray-50 font-bold text-gray-600 outline-none text-xs cursor-pointer py-1.5 px-3 rounded-lg border border-gray-100 focus:border-indigo-300 text-left" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}>
+                <option value="all">Todos los Sexos</option>
+                <option value="male">Masculino</option>
+                <option value="female">Femenino</option>
+                <option value="other">Otro</option>
+            </select>
+
+            <div className="h-6 w-px bg-gray-100 mx-1 text-left"></div>
+
+            <select className="bg-transparent font-black text-indigo-600 outline-none text-xs cursor-pointer py-1.5 px-2 text-left" value={dateFilter} onChange={(e) => setDateFilter(e.target.value as any)}>
                 <option value="current">Este Mes</option>
                 <option value="last">Mes Anterior</option>
                 <option value="year">Todo el Año</option>
@@ -165,7 +212,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="p-2 bg-green-50 text-green-600 rounded-lg"><DollarSign size={20}/></div>
               </div>
-              <p className="text-xs text-green-600 mt-4 font-medium text-left">Cobrado en este periodo</p>
+              <p className="text-xs text-green-600 mt-4 font-medium flex items-center gap-1 text-left">Cobrado en este periodo</p>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-left">
@@ -181,7 +228,6 @@ export default function AdminDashboard() {
               <p className="text-xs text-gray-400 mt-4 font-medium text-left">Deuda neta del periodo</p>
           </div>
 
-          {/* NUEVO KPI: CANTIDAD DE MOROSOS */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-left">
               <div className="flex justify-between items-start text-left">
                   <div className="text-left">
@@ -250,7 +296,7 @@ export default function AdminDashboard() {
                           </p>
                         </div>
                       )}
-                      <button disabled={!quickPayUser || !quickPayAmount || processing} className="w-full mt-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition shadow-md uppercase tracking-wide text-sm text-left flex justify-center items-center">
+                      <button disabled={!quickPayUser || !quickPayAmount || processing} className="w-full mt-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition shadow-md uppercase tracking-wide text-sm text-left flex justify-center items-center text-left">
                         {processing ? <Loader2 className="animate-spin mx-auto text-center"/> : 'INGRESAR DINERO'}
                       </button>
                   </form>
