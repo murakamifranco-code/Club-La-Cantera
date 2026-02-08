@@ -276,8 +276,8 @@ export default function PlayersPage() {
             className="rounded-lg border-gray-200 bg-gray-50 py-1.5 px-3 text-xs font-bold text-gray-700 focus:border-indigo-500 focus:ring-indigo-500"
           >
             <option value="all">estado</option>
-            <option value="active">ACTIVOS</option>
-            <option value="inactive">INACTIVOS</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
           </select>
 
           <select 

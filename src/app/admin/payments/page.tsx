@@ -288,7 +288,7 @@ export default function AdminPayments() {
 
       {deleteModal?.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 max-sm w-full animate-in zoom-in-95">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in zoom-in-95">
                 <div className="flex flex-col items-center text-center">
                     <div className="h-16 w-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4"><AlertTriangle size={32}/></div>
                     <h3 className="text-xl font-black text-gray-900 mb-2 uppercase italic tracking-tight">¿Eliminar Pago?</h3>
