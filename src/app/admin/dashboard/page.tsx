@@ -60,7 +60,6 @@ export default function AdminDashboard() {
     const periodBalance = movements?.reduce((acc, curr) => acc + curr.amount, 0) || 0;
     const periodDebt = periodBalance < 0 ? Math.abs(periodBalance) : 0;
 
-    // CAMBIO SOLICITADO: Solo los últimos 5 pagos (ingresos de dinero reales)
     const { data: recent } = await supabase.from('payments')
       .select('*, users(name)')
       .gt('amount', 0)
@@ -79,7 +78,8 @@ export default function AdminDashboard() {
   const handleSearch = async (term: string) => {
       setSearchTerm(term)
       if (term.length < 3) { setSearchResults([]); return }
-      const { data } = await supabase.from('users').select('id, name, dni, account_balance, category, birth_date').eq('role', 'player').or(`name.ilike.%${term}%,dni.ilike.%${term}%`).limit(5)
+      // CORRECCIÓN: Se cambia la búsqueda de 'dni' a 'cuil'
+      const { data } = await supabase.from('users').select('id, name, cuil, account_balance, category, birth_date').eq('role', 'player').or(`name.ilike.%${term}%,cuil.ilike.%${term}%`).limit(5)
       setSearchResults(data || [])
   }
 
@@ -190,12 +190,13 @@ export default function AdminDashboard() {
                   {!quickPayUser ? (
                       <div className="relative text-left">
                           <label className="text-xs font-bold text-gray-500 uppercase ml-1 text-left">Buscar Jugador</label>
-                          <div className="relative mt-1 text-left"><Search className="absolute left-3 top-3 text-gray-400" size={18}/><input type="text" placeholder="Escribí nombre o DNI..." className="w-full pl-10 p-3 border border-gray-300 rounded-lg outline-none focus:border-indigo-500 transition font-medium text-gray-700 placeholder-gray-400 text-left" value={searchTerm} onChange={(e) => handleSearch(e.target.value)}/></div>
+                          {/* CORRECCIÓN: Se cambia placeholder de DNI a CUIL */}
+                          <div className="relative mt-1 text-left"><Search className="absolute left-3 top-3 text-gray-400" size={18}/><input type="text" placeholder="Escribí nombre o CUIL..." className="w-full pl-10 p-3 border border-gray-300 rounded-lg outline-none focus:border-indigo-500 transition font-medium text-gray-700 placeholder-gray-400 text-left" value={searchTerm} onChange={(e) => handleSearch(e.target.value)}/></div>
                           {searchResults.length > 0 && (
                               <div className="absolute z-10 w-full bg-white border border-gray-200 mt-2 rounded-lg shadow-xl max-h-48 overflow-y-auto text-left">
                                   {searchResults.map(u => (
                                       <div key={u.id} onClick={() => selectUser(u)} className="p-3 hover:bg-indigo-50 cursor-pointer flex justify-between items-center border-b border-gray-100 last:border-0 group text-left">
-                                          <div className="text-left"><p className="font-bold text-sm text-gray-800 group-hover:text-indigo-700 text-left">{u.name}</p><p className="text-xs text-gray-500 text-left">DNI: {u.dni}</p></div>
+                                          <div className="text-left"><p className="font-bold text-sm text-gray-800 group-hover:text-indigo-700 text-left">{u.name}</p><p className="text-xs text-gray-500 text-left">CUIL: {u.cuil}</p></div>
                                           <div className={`text-xs font-bold px-2 py-1 rounded border ${u.account_balance < 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'} text-left`}>{u.account_balance < 0 ? `Debe $${Math.abs(u.account_balance)}` : 'Al día'}</div>
                                       </div>
                                   ))}
