@@ -138,11 +138,18 @@ export default function PlayersPage() {
 
   const openModal = (player?: Player) => {
     if (player) { 
+      // Normalización inteligente para que el modal no aparezca vacío al editar datos viejos
+      const dbGender = (player.gender || "").toLowerCase();
+      let selectedGender = "";
+      if (dbGender === 'male' || dbGender === 'm' || dbGender === 'masculino') selectedGender = "male";
+      if (dbGender === 'female' || dbGender === 'f' || dbGender === 'femenino') selectedGender = "female";
+      if (dbGender === 'other') selectedGender = "other";
+
       setEditingPlayer(player)
       setFormData({ 
         name: player.name || '', email: player.email || '', cuil: player.cuil || '', 
         phone: player.phone || '', address: player.address || '', birth_date: player.birth_date || '', 
-        gender: player.gender || '', medical_notes: player.medical_notes || '', 
+        gender: selectedGender, medical_notes: player.medical_notes || '', 
         emergency_contact: player.emergency_contact || '', emergency_contact_name: player.emergency_contact_name || '' 
       })
     } else { 
