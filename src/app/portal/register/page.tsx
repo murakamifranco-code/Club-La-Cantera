@@ -10,7 +10,7 @@ export default function Register() {
   const router = useRouter()
   
   const [formData, setFormData] = useState({
-      email: '', password: '', name: '', dni: '', phone: '',
+      email: '', password: '', name: '', cuil: '', phone: '',
       birth_date: '', address: '', gender: '',
       emergency_contact_name: '', emergency_contact: '', medical_notes: ''
   })
@@ -46,7 +46,7 @@ export default function Register() {
           id: authData.user.id,
           email: formData.email,
           name: formData.name,
-          dni: formData.dni,
+          cuil: formData.cuil,
           phone: formData.phone,
           role: 'player',
           status: 'active',
@@ -136,8 +136,8 @@ export default function Register() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">DNI</label>
-                    <input type="number" required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" placeholder="Sin puntos" value={formData.dni} onChange={(e) => setFormData({...formData, dni: e.target.value})} />
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CUIL</label>
+                    <input type="text" required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" placeholder="Ej: 20-44667874-5" value={formData.cuil} onChange={(e) => setFormData({...formData, cuil: e.target.value})} />
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><Calendar size={14}/> Fecha de Nacimiento</label>
