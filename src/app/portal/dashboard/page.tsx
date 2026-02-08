@@ -123,16 +123,14 @@ export default function PortalDashboard() {
               publicUrl = supabase.storage.from('receipts').getPublicUrl(fileName).data.publicUrl
           }
           
-          // ARREGLO PARA QUE EL PAGO SE MUESTRE: Se agregan validaciones de nulos
+          // ARREGLO PARA QUE EL PAGO SE MUESTRE: Se quitan payer_name y payer_cuil para evitar error de columna inexistente
           const { error: insertError } = await supabase.from('payments').insert({
               user_id: user.id, 
               amount: parseFloat(amount), 
               method: 'transfer', 
               status: 'pending', 
               date: new Date().toISOString(), 
-              proof_url: publicUrl,
-              payer_name: user?.payer_name || null,
-              payer_cuil: user?.payer_cuil || null
+              proof_url: publicUrl
           })
 
           if (insertError) throw insertError
