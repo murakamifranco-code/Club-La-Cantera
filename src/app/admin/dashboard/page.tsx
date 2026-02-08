@@ -78,7 +78,6 @@ export default function AdminDashboard() {
   const handleSearch = async (term: string) => {
       setSearchTerm(term)
       if (term.length < 3) { setSearchResults([]); return }
-      // CORRECCIÓN: Se cambia la búsqueda de 'dni' a 'cuil'
       const { data } = await supabase.from('users').select('id, name, cuil, account_balance, category, birth_date').eq('role', 'player').or(`name.ilike.%${term}%,cuil.ilike.%${term}%`).limit(5)
       setSearchResults(data || [])
   }
@@ -112,7 +111,7 @@ export default function AdminDashboard() {
           })
 
           if (error) throw error
-          showToast(`Pago de $${amount} registrado para ${quickPayUser.name}`, 'success')
+          showToast(`Pago de $${amount.toLocaleString()} registrado para ${quickPayUser.name}`, 'success')
           setQuickPayUser(null); setQuickPayAmount(''); fetchDashboardData() 
       } catch (error) { showToast('Error al registrar pago.', 'error') } finally { setProcessing(false) }
   }
@@ -140,7 +139,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* TARJETAS RESTANTES - AJUSTADAS A 2 COLUMNAS */}
+      {/* TARJETAS KPI */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 text-left">
               <div className="flex justify-between items-start text-left">
@@ -190,14 +189,13 @@ export default function AdminDashboard() {
                   {!quickPayUser ? (
                       <div className="relative text-left">
                           <label className="text-xs font-bold text-gray-500 uppercase ml-1 text-left">Buscar Jugador</label>
-                          {/* CORRECCIÓN: Se cambia placeholder de DNI a CUIL */}
                           <div className="relative mt-1 text-left"><Search className="absolute left-3 top-3 text-gray-400" size={18}/><input type="text" placeholder="Escribí nombre o CUIL..." className="w-full pl-10 p-3 border border-gray-300 rounded-lg outline-none focus:border-indigo-500 transition font-medium text-gray-700 placeholder-gray-400 text-left" value={searchTerm} onChange={(e) => handleSearch(e.target.value)}/></div>
                           {searchResults.length > 0 && (
                               <div className="absolute z-10 w-full bg-white border border-gray-200 mt-2 rounded-lg shadow-xl max-h-48 overflow-y-auto text-left">
                                   {searchResults.map(u => (
                                       <div key={u.id} onClick={() => selectUser(u)} className="p-3 hover:bg-indigo-50 cursor-pointer flex justify-between items-center border-b border-gray-100 last:border-0 group text-left">
                                           <div className="text-left"><p className="font-bold text-sm text-gray-800 group-hover:text-indigo-700 text-left">{u.name}</p><p className="text-xs text-gray-500 text-left">CUIL: {u.cuil}</p></div>
-                                          <div className={`text-xs font-bold px-2 py-1 rounded border ${u.account_balance < 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'} text-left`}>{u.account_balance < 0 ? `Debe $${Math.abs(u.account_balance)}` : 'Al día'}</div>
+                                          <div className={`text-xs font-bold px-2 py-1 rounded border ${u.account_balance < 0 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-green-50 text-green-600 border-green-100'} text-left`}>{u.account_balance < 0 ? `Debe $${Math.abs(u.account_balance).toLocaleString()}` : 'Al día'}</div>
                                       </div>
                                   ))}
                               </div>
@@ -207,7 +205,7 @@ export default function AdminDashboard() {
                       <div className="p-4 bg-white rounded-lg flex justify-between items-center border border-indigo-200 shadow-sm text-left">
                            <div className="flex items-center gap-3 text-left">
                                <div className="h-10 w-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-lg text-left">{quickPayUser.name.charAt(0)}</div>
-                               <div className="text-left"><p className="font-bold text-gray-800 text-left">{quickPayUser.name}</p><p className={`text-xs font-semibold ${quickPayUser.account_balance < 0 ? 'text-red-500' : 'text-green-600'} text-left`}>Saldo actual: ${quickPayUser.account_balance}</p></div>
+                               <div className="text-left"><p className="font-bold text-gray-800 text-left">{quickPayUser.name}</p><p className={`text-xs font-semibold ${quickPayUser.account_balance < 0 ? 'text-red-500' : 'text-green-600'} text-left`}>Saldo actual: ${quickPayUser.account_balance.toLocaleString()}</p></div>
                            </div>
                            <button onClick={() => setQuickPayUser(null)} className="p-2 hover:bg-gray-100 text-gray-400 hover:text-red-500 rounded-lg transition text-left"><XCircle size={20} /></button>
                       </div>
@@ -215,7 +213,20 @@ export default function AdminDashboard() {
                   <form onSubmit={handleQuickPay} className="text-left">
                       <label className="text-xs font-bold text-gray-500 uppercase ml-1 text-left">Monto Recibido</label>
                       <div className="relative mt-1 text-left"><span className="absolute left-3 top-3 text-gray-500 font-bold text-lg text-left">$</span><input type="number" required min="1" disabled={!quickPayUser} className="w-full pl-8 p-3 border border-gray-300 rounded-lg outline-none focus:border-green-500 transition font-bold text-xl text-gray-800 placeholder-gray-300 disabled:bg-gray-50 text-left" placeholder="0" value={quickPayAmount} onChange={(e) => setQuickPayAmount(e.target.value)}/></div>
-                      <button disabled={!quickPayUser || !quickPayAmount || processing} className="w-full mt-4 py-3 bg-gray-900 text-white font-bold rounded-lg hover:bg-black disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition shadow-md uppercase tracking-wide text-sm text-left">{processing ? <Loader2 className="animate-spin mx-auto text-center"/> : 'Ingresar Dinero'}</button>
+                      
+                      {/* CARTEL DE CONFIRMACIÓN DINÁMICO */}
+                      {quickPayUser && quickPayAmount && (
+                        <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-lg animate-in fade-in slide-in-from-top-1 duration-300">
+                          <p className="text-xs font-bold text-green-700 flex items-center gap-2">
+                            <CheckCircle size={14}/> Usted está por ingresarle <span className="text-sm font-black">${Number(quickPayAmount).toLocaleString()}</span> a {quickPayUser.name.split(' ')[0]}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* BOTÓN VERDE */}
+                      <button disabled={!quickPayUser || !quickPayAmount || processing} className="w-full mt-4 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition shadow-md uppercase tracking-wide text-sm text-left flex justify-center items-center">
+                        {processing ? <Loader2 className="animate-spin mx-auto text-center"/> : 'INGRESAR DINERO'}
+                      </button>
                   </form>
               </div>
           </div>
