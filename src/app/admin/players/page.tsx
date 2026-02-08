@@ -7,7 +7,7 @@ import { es } from 'date-fns/locale'
 
 // Interfaces
 interface Player {
-  id: string; name: string; email: string; status: string; role: string; dni?: string; phone?: string; address?: string; birth_date?: string; gender?: string; medical_notes?: string; emergency_contact?: string; emergency_contact_name?: string; account_balance: number;
+  id: string; name: string; email: string; status: string; role: string; cuil?: string; phone?: string; address?: string; birth_date?: string; gender?: string; medical_notes?: string; emergency_contact?: string; emergency_contact_name?: string; account_balance: number;
 }
 interface Transaction { 
   id: string; 
@@ -40,7 +40,7 @@ export default function PlayersPage() {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
   
   const [formData, setFormData] = useState({ 
-    name: '', email: '', dni: '', phone: '', address: '', 
+    name: '', email: '', cuil: '', phone: '', address: '', 
     birth_date: '', gender: '', medical_notes: '', 
     emergency_contact: '', emergency_contact_name: '' 
   })
@@ -140,14 +140,14 @@ export default function PlayersPage() {
     if (player) { 
       setEditingPlayer(player)
       setFormData({ 
-        name: player.name || '', email: player.email || '', dni: player.dni || '', 
+        name: player.name || '', email: player.email || '', cuil: player.cuil || '', 
         phone: player.phone || '', address: player.address || '', birth_date: player.birth_date || '', 
         gender: player.gender || '', medical_notes: player.medical_notes || '', 
         emergency_contact: player.emergency_contact || '', emergency_contact_name: player.emergency_contact_name || '' 
       })
     } else { 
       setEditingPlayer(null)
-      setFormData({ name: '', email: '', dni: '', phone: '', address: '', birth_date: '', gender: '', medical_notes: '', emergency_contact: '', emergency_contact_name: '' }) 
+      setFormData({ name: '', email: '', cuil: '', phone: '', address: '', birth_date: '', gender: '', medical_notes: '', emergency_contact: '', emergency_contact_name: '' }) 
     }
     setIsModalOpen(true)
   }
@@ -155,9 +155,9 @@ export default function PlayersPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault(); setIsSubmitting(true)
     try {
-      const { data: existingDni } = await supabase.from('users').select('id').eq('dni', formData.dni).neq('id', editingPlayer?.id || '').maybeSingle()
-      if (existingDni) {
-          alert('Error: Ya existe un socio registrado con este DNI.')
+      const { data: existingCuil } = await supabase.from('users').select('id').eq('cuil', formData.cuil).neq('id', editingPlayer?.id || '').maybeSingle()
+      if (existingCuil) {
+          alert('Error: Ya existe un socio registrado con este CUIL.')
           setIsSubmitting(false); return
       }
 
@@ -170,9 +170,9 @@ export default function PlayersPage() {
       else { 
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: formData.email,
-            password: formData.dni,
+            password: formData.cuil,
             options: {
-              data: { full_name: formData.name, dni: formData.dni, role: 'player' }
+              data: { full_name: formData.name, cuil: formData.cuil, role: 'player' }
             }
         })
         if (authError) throw authError
@@ -188,7 +188,7 @@ export default function PlayersPage() {
 
   // --- LÓGICA DE FILTRADO COMBINADA ---
   const filteredPlayers = players.filter(p => {
-    const matchesSearch = (p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || (p.dni || "").includes(searchTerm)
+    const matchesSearch = (p.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || (p.cuil || "").includes(searchTerm)
     const matchesStatus = filterStatus === 'all' || p.status === filterStatus
     const matchesCategory = filterCategory === 'all' || getCategory(p.birth_date) === filterCategory
     
@@ -205,16 +205,16 @@ export default function PlayersPage() {
 
   // --- LÓGICA DE EXPORTACIÓN EXCEL (CON ;) ---
   const exportToExcel = () => {
-    const headers = ['Nombre', 'DNI', 'Email', 'Categoria', 'Sexo', 'Estado', 'Saldo'];
+    const headers = ['Nombre', 'CUIL', 'Email', 'Categoria', 'Sexo', 'Estado', 'Saldo'];
     const rows = filteredPlayers.map(p => [
       p.name || '',
-      p.dni || '',
+      p.cuil || '',
       p.email || '',
       getCategory(p.birth_date),
       p.gender === 'male' ? 'Masculino' : p.gender === 'female' ? 'Femenino' : 'Otro',
       p.status === 'active' ? 'Activo' : 'Inactivo',
       p.account_balance || 0
-    ].join(';'));
+    ].join(';')); // Uso de punto y coma
 
     const csvContent = [headers.join(';'), ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -232,6 +232,7 @@ export default function PlayersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div><h1 className="text-3xl font-bold tracking-tight text-gray-900">Socios</h1><p className="mt-2 text-gray-500">Gestión de socios del club.</p></div>
         <div className="flex gap-2">
+          {/* BOTON EXPORTAR EXCEL VERDE */}
           <button 
             onClick={exportToExcel} 
             className="inline-flex items-center justify-center rounded-md bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-green-700 transition"
@@ -245,7 +246,7 @@ export default function PlayersPage() {
       <div className="flex flex-col md:flex-row gap-4 items-end bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
         <div className="relative flex-1 w-full">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><Search className="h-5 w-5 text-gray-400" /></div>
-          <input type="text" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 sm:text-sm" placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <input type="text" className="block w-full rounded-md border-0 py-2 pl-10 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600 sm:text-sm" placeholder="Buscar por nombre o CUIL..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
         
         <div className="flex flex-wrap md:flex-nowrap gap-4 w-full lg:w-auto items-center">
@@ -307,7 +308,7 @@ export default function PlayersPage() {
                 const birthYear = player.birth_date ? parseISO(player.birth_date).getFullYear() : '';
                 return (
                 <tr key={player.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4"><div className="flex items-center"><div className={`h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white uppercase bg-indigo-500`}>{player.name.charAt(0)}</div><div className="ml-4"><div className="text-sm font-medium text-gray-900">{player.name}</div><div className="text-xs text-gray-500">{player.dni || player.email}</div></div></div></td>
+                  <td className="px-6 py-4"><div className="flex items-center"><div className={`h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white uppercase bg-indigo-500`}>{player.name.charAt(0)}</div><div className="ml-4"><div className="text-sm font-medium text-gray-900">{player.name}</div><div className="text-xs text-gray-500">{player.cuil || player.email}</div></div></div></td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCategory(player.birth_date)} {birthYear && `(${birthYear})`}</td>
                   <td className="px-6 py-4 whitespace-nowrap"><div className={`text-sm font-bold ${player.account_balance < 0 ? 'text-red-600' : 'text-green-600'}`}>{player.account_balance < 0 ? '-' : '+'}${Math.abs(player.account_balance).toLocaleString()}</div></td>
                   <td className="px-6 py-4 whitespace-nowrap"><button onClick={() => handleStatusClick(player)} className={`px-2 py-1 text-xs font-medium rounded-full ${player.status === 'active' ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}>{player.status === 'active' ? 'Activo' : 'Inactivo'}</button></td>
@@ -332,7 +333,7 @@ export default function PlayersPage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-gray-900 leading-tight">{player.name}</h3>
-                    <p className="text-[11px] text-gray-500 font-medium uppercase tracking-tighter">{player.dni || 'SIN DNI'}</p>
+                    <p className="text-[11px] text-gray-500 font-medium uppercase tracking-tighter">{player.cuil || 'SIN CUIL'}</p>
                   </div>
                 </div>
                 <button 
@@ -466,8 +467,8 @@ export default function PlayersPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">DNI (Único)</label>
-                        <input required type="text" placeholder="12345678" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.dni} onChange={e => setFormData({...formData, dni: e.target.value})} />
+                        <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">CUIL (Único)</label>
+                        <input required type="text" placeholder="20-44667874-5" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.cuil} onChange={e => setFormData({...formData, cuil: e.target.value})} />
                       </div>
                       <div className="space-y-1">
                         <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Nacimiento</label>
