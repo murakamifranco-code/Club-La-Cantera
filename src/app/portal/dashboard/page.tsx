@@ -45,12 +45,32 @@ export default function PortalDashboard() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  // Función para formatear CUIL automáticamente al editar
+  const handleCuilChange = (val: string) => {
+    let value = val.replace(/\D/g, ""); // Solo números
+    if (value.length > 11) value = value.slice(0, 11);
+    let formatted = value;
+    if (value.length > 2) formatted = `${value.slice(0, 2)}-${value.slice(2)}`;
+    if (value.length > 10) formatted = `${formatted.slice(0, 11)}-${value.slice(10, 11)}`;
+    setFormData({ ...formData, cuil: formatted });
+  }
+
   const fetchUserData = async () => {
     try {
       const storedId = localStorage.getItem('club_player_id')
       if (!storedId) throw new Error('No hay sesión')
       const { data: userData } = await supabase.from('users').select('*').eq('id', storedId).single()
-      if (userData) { setUser(userData); setFormData(userData) }
+      if (userData) { 
+        setUser(userData); 
+        // Normalización de género para que no aparezca vacío el select
+        const dbGender = (userData.gender || "").toLowerCase();
+        let normalizedGender = "";
+        if (dbGender === 'masculino' || dbGender === 'male' || dbGender === 'm') normalizedGender = "Masculino";
+        else if (dbGender === 'femenino' || dbGender === 'female' || dbGender === 'f') normalizedGender = "Femenino";
+        else if (dbGender === 'otro' || dbGender === 'other' || dbGender === 'x') normalizedGender = "Otro";
+        
+        setFormData({ ...userData, gender: normalizedGender }); 
+      }
       const { data: paymentsData } = await supabase.from('payments').select('*').eq('user_id', storedId).order('date', { ascending: false })
       setPayments(paymentsData || [])
     } catch (error) { router.replace('/portal') } finally { setLoading(false) }
@@ -63,10 +83,17 @@ export default function PortalDashboard() {
     setMessage(null)
     try {
       const updates = {
-        name: formData.name, dni: formData.dni, email: formData.email, phone: formData.phone, address: formData.address,
-        gender: formData.gender, birth_date: formData.birth_date && formData.birth_date !== "" ? formData.birth_date : null,
-        emergency_contact: formData.emergency_contact, emergency_phone: formData.emergency_phone,
-        medical_conditions: formData.medical_conditions, updated_at: new Date().toISOString()
+        name: formData.name, 
+        cuil: formData.cuil, // Cambio de dni a cuil
+        email: formData.email, 
+        phone: formData.phone, 
+        address: formData.address,
+        gender: formData.gender, 
+        birth_date: formData.birth_date && formData.birth_date !== "" ? formData.birth_date : null,
+        emergency_contact: formData.emergency_contact, 
+        emergency_phone: formData.emergency_phone,
+        medical_conditions: formData.medical_conditions, 
+        updated_at: new Date().toISOString()
       }
       const { error } = await supabase.from('users').update(updates).eq('id', user.id)
       if (error) throw error
@@ -227,8 +254,15 @@ export default function PortalDashboard() {
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-1">
-                              <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">DNI</label>
-                              <input disabled={!isEditing} type="text" value={isEditing ? formData.dni : user.dni} onChange={e => setFormData({...formData, dni: e.target.value})} className={`w-full p-3 border rounded-xl font-bold text-sm outline-none ${isEditing ? 'bg-white border-gray-400 text-gray-900' : 'bg-gray-50 border-gray-200 text-gray-900'}`}/>
+                              <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">CUIL</label>
+                              <input 
+                                disabled={!isEditing} 
+                                type="text" 
+                                value={isEditing ? formData.cuil : user.cuil} 
+                                onChange={e => handleCuilChange(e.target.value)} 
+                                className={`w-full p-3 border rounded-xl font-bold text-sm outline-none ${isEditing ? 'bg-white border-gray-400 text-gray-900' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                placeholder="20-44667874-5"
+                              />
                           </div>
                           <div className="space-y-1">
                               <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Fecha de Nacimiento</label>
@@ -246,7 +280,7 @@ export default function PortalDashboard() {
                                   <select value={formData.gender || ''} onChange={e => setFormData({...formData, gender: e.target.value})} className="w-full p-3 border border-gray-400 rounded-xl font-bold text-gray-900 text-sm outline-none bg-white">
                                       <option value="">Género...</option><option value="Masculino">Masculino</option><option value="Femenino">Femenino</option><option value="Otro">Otro</option>
                                   </select>
-                              ) : ( <div className="w-full p-3 border border-gray-200 bg-gray-50 rounded-xl font-bold text-gray-900 text-sm">{user.gender || '-'}</div> )}
+                              ) : ( <div className="w-full p-3 border border-gray-200 bg-gray-50 rounded-xl font-bold text-gray-900 text-sm">{formData.gender || '-'}</div> )}
                           </div>
                       </div>
                       <div className="space-y-1">
