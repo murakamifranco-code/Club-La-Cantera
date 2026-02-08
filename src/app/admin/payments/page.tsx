@@ -46,7 +46,7 @@ export default function AdminPayments() {
 
         let query = supabase
             .from('payments')
-            .select('*, users!inner(name, email, dni, category, gender)')
+            .select('*, users!inner(name, email, cuil, category, gender)')
             .neq('method', 'cuota')
             .or('status.eq.approved,status.eq.completed,method.eq.adjustment')
             .order('date', { ascending: false })
@@ -65,15 +65,12 @@ export default function AdminPayments() {
     }
   }
 
-  // --- FUNCIÓN DE ELIMINACIÓN CORREGIDA (DEJAMOS QUE EL TRIGGER DE SUPABASE TRABAJE) ---
   const executeDelete = async () => {
       if (!deleteModal) return
       setIsDeleting(true)
       const { id } = deleteModal
 
       try {
-          // Solo borramos el registro. 
-          // El trigger 'on_payment_deleted' en Supabase ajustará el saldo automáticamente.
           const { error: deleteError } = await supabase
               .from('payments')
               .delete()
@@ -101,11 +98,11 @@ export default function AdminPayments() {
   const filteredPayments = payments.filter(p => {
       const user = Array.isArray(p.users) ? p.users[0] : p.users
       const name = user?.name?.toLowerCase() || ''
-      const dni = user?.dni || ''
+      const cuil = user?.cuil || ''
       const historicCategory = p.category_snapshot || user?.category || ''
       const genderRaw = user?.gender ? String(user.gender).toLowerCase().trim() : ''
 
-      const matchesSearch = name.includes(searchTerm.toLowerCase()) || dni.includes(searchTerm)
+      const matchesSearch = name.includes(searchTerm.toLowerCase()) || cuil.includes(searchTerm)
       const matchesCategory = categoryFilter === 'all' || historicCategory === categoryFilter
       const matchesGender = genderFilter === 'all' || 
         (genderFilter === 'Femenino' && (genderRaw === 'femenino' || genderRaw === 'female' || genderRaw === 'f')) ||
@@ -115,15 +112,15 @@ export default function AdminPayments() {
   })
 
   const exportToExcel = () => {
-      const headers = ['Fecha', 'Jugador', 'DNI', 'Detalle', 'Metodo', 'Monto'].join(';');
+      const headers = ['Fecha', 'Jugador', 'CUIL', 'Detalle', 'Metodo', 'Monto'].join(';');
       const rows = filteredPayments.map(p => {
           const user = Array.isArray(p.users) ? p.users[0] : p.users;
           const date = format(parseISO(p.date), 'dd/MM/yyyy');
           const method = getMethodLabel(p.method).text;
           const category = p.category_snapshot || user?.category || '-';
           const name = user?.name || '';
-          const dni = user?.dni || '';
-          return [date, name.replace(/;/g, ''), dni, category, method, p.amount].join(';');
+          const cuil = user?.cuil || '';
+          return [date, name.replace(/;/g, ''), cuil, category, method, p.amount].join(';');
       }).join('\n');
 
       const content = headers + '\n' + rows;
@@ -164,7 +161,7 @@ export default function AdminPayments() {
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4">
           <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
               <div className="relative w-full md:w-80">
-                  <Search className="absolute left-3 top-3 text-gray-500" size={18} /><input type="text" className="w-full pl-10 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-gray-900 placeholder-gray-500" placeholder="Buscar por nombre o DNI..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}/>
+                  <Search className="absolute left-3 top-3 text-gray-500" size={18} /><input type="text" className="w-full pl-10 p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-bold text-gray-900 placeholder-gray-500" placeholder="Buscar por nombre o CUIL..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}/>
               </div>
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                   <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-2 rounded-lg">
@@ -234,7 +231,6 @@ export default function AdminPayments() {
           </table>
       </div>
 
-      {/* VISTA PARA CELULARES */}
       <div className="md:hidden space-y-4">
         {loading ? (<div className="flex justify-center p-12"><Loader2 className="animate-spin text-indigo-600"/></div>) : filteredPayments.length === 0 ? (<div className="p-8 text-center text-gray-400 text-sm bg-white rounded-xl border border-gray-200">No se encontraron pagos.</div>) : (
           filteredPayments.map((payment) => {
@@ -273,7 +269,6 @@ export default function AdminPayments() {
         )}
       </div>
 
-      {/* MODAL COMPROBANTE */}
       {previewUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={() => setPreviewUrl(null)}>
             <div className="bg-white rounded-2xl overflow-hidden max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -291,10 +286,9 @@ export default function AdminPayments() {
         </div>
       )}
 
-      {/* MODAL DE ELIMINACIÓN */}
       {deleteModal?.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-in zoom-in-95">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 max-sm w-full animate-in zoom-in-95">
                 <div className="flex flex-col items-center text-center">
                     <div className="h-16 w-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4"><AlertTriangle size={32}/></div>
                     <h3 className="text-xl font-black text-gray-900 mb-2 uppercase italic tracking-tight">¿Eliminar Pago?</h3>
