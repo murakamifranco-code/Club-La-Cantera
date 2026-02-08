@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle, Filter, Download, CreditCard } from 'lucide-react'
+import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle, Filter, Download, CreditCard, Plus, Trash2 } from 'lucide-react'
 import { parseISO, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -43,9 +43,11 @@ export default function PlayersPage() {
   const [formData, setFormData] = useState({ 
     name: '', email: '', cuil: '', phone: '', address: '', 
     birth_date: '', gender: '', medical_notes: '', 
-    emergency_contact: '', emergency_contact_name: '',
-    payer_name: '', payer_cuil: '' 
+    emergency_contact: '', emergency_contact_name: '' 
   })
+
+  // ESTADO PARA PAGADORES DINÁMICOS
+  const [payers, setPayers] = useState<{ name: string; cuil: string }[]>([{ name: '', cuil: '' }])
 
   const fetchPlayers = async () => {
     try {
@@ -138,6 +140,26 @@ export default function PlayersPage() {
     return `Mayores`
   }
 
+  // FUNCIONES DINÁMICAS PAGADORES
+  const handleAddPayer = () => setPayers([...payers, { name: '', cuil: '' }])
+  const handleRemovePayer = (index: number) => {
+    if (payers.length > 1) setPayers(payers.filter((_, i) => i !== index))
+  }
+  const handlePayerChange = (index: number, field: 'name' | 'cuil', value: string) => {
+    const newPayers = [...payers]
+    newPayers[index][field] = field === 'cuil' ? formatCuil(value) : value
+    setPayers(newPayers)
+  }
+
+  const formatCuil = (val: string) => {
+    let value = val.replace(/\D/g, ""); 
+    if (value.length > 11) value = value.slice(0, 11);
+    let formatted = value;
+    if (value.length > 2) formatted = `${value.slice(0, 2)}-${value.slice(2)}`;
+    if (value.length > 10) formatted = `${formatted.slice(0, 11)}-${value.slice(10, 11)}`;
+    return formatted;
+  }
+
   const openModal = (player?: Player) => {
     if (player) { 
       const dbGender = (player.gender || "").toLowerCase();
@@ -151,12 +173,21 @@ export default function PlayersPage() {
         name: player.name || '', email: player.email || '', cuil: player.cuil || '', 
         phone: player.phone || '', address: player.address || '', birth_date: player.birth_date || '', 
         gender: selectedGender, medical_notes: player.medical_notes || '', 
-        emergency_contact: player.emergency_contact || '', emergency_contact_name: player.emergency_contact_name || '',
-        payer_name: player.payer_name || '', payer_cuil: player.payer_cuil || ''
+        emergency_contact: player.emergency_contact || '', emergency_contact_name: player.emergency_contact_name || '' 
       })
+
+      // PARSEAR PAGADORES
+      if (player.payer_name) {
+        const names = player.payer_name.split(' / ')
+        const cuils = (player.payer_cuil || "").split(' / ')
+        setPayers(names.map((n, i) => ({ name: n, cuil: cuils[i] || '' })))
+      } else {
+        setPayers([{ name: '', cuil: '' }])
+      }
     } else { 
       setEditingPlayer(null)
-      setFormData({ name: '', email: '', cuil: '', phone: '', address: '', birth_date: '', gender: '', medical_notes: '', emergency_contact: '', emergency_contact_name: '', payer_name: '', payer_cuil: '' }) 
+      setFormData({ name: '', email: '', cuil: '', phone: '', address: '', birth_date: '', gender: '', medical_notes: '', emergency_contact: '', emergency_contact_name: '' }) 
+      setPayers([{ name: '', cuil: '' }])
     }
     setIsModalOpen(true)
   }
@@ -171,7 +202,17 @@ export default function PlayersPage() {
       }
 
       const calculatedCategory = getCategory(formData.birth_date);
-      const dataToSave = { ...formData, category: calculatedCategory };
+      
+      // UNIFICAR PAGADORES
+      const combinedNames = payers.map(p => p.name).filter(n => n !== "").join(' / ')
+      const combinedCuils = payers.map(p => p.cuil).filter(c => c !== "").join(' / ')
+
+      const dataToSave = { 
+        ...formData, 
+        category: calculatedCategory,
+        payer_name: combinedNames || null,
+        payer_cuil: combinedCuils || null
+      };
 
       if (editingPlayer) { 
         await supabase.from('users').update(dataToSave).eq('id', editingPlayer.id) 
@@ -453,7 +494,7 @@ export default function PlayersPage() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto text-left">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl overflow-hidden border border-gray-100">
             <div className="p-4 border-b flex justify-between items-center bg-gray-50">
               <h2 className="text-lg font-black text-gray-900 uppercase italic tracking-tight">{editingPlayer ? 'Editar Socio' : 'Nuevo Socio'}</h2>
@@ -483,7 +524,7 @@ export default function PlayersPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">CUIL (Único)</label>
-                        <input required type="text" placeholder="20-44667874-5" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.cuil} onChange={e => setFormData({...formData, cuil: e.target.value})} />
+                        <input required type="text" placeholder="20-44667874-5" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.cuil} onChange={e => setFormData({...formData, cuil: formatCuil(e.target.value)})} />
                       </div>
                       <div className="space-y-1">
                         <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Nacimiento</label>
@@ -512,19 +553,32 @@ export default function PlayersPage() {
                   </div>
               </div>
 
+              {/* SECCIÓN RESPONSABLE DE PAGOS DINÁMICA */}
               <div>
                   <div className="mb-2 border-b border-gray-200 pb-1 flex items-center gap-2">
-                    <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><CreditCard size={14}/> Responsable de Pagos</h3>
+                    <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><CreditCard size={14}/> Responsables de Pagos</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Nombre del Pagador</label>
-                      <input type="text" placeholder="Padre / Tutor" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.payer_name} onChange={e => setFormData({...formData, payer_name: e.target.value})} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">CUIL del Pagador</label>
-                      <input type="text" placeholder="20-XXXXXXXX-X" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.payer_cuil} onChange={e => setFormData({...formData, payer_cuil: e.target.value})} />
-                    </div>
+                  <div className="space-y-3">
+                      {payers.map((p, index) => (
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end bg-gray-50/50 p-3 rounded-xl border border-gray-100">
+                          <div className="space-y-1">
+                            <label className="block text-[9px] font-bold text-gray-400 uppercase">Nombre Pagador {index + 1}</label>
+                            <input type="text" placeholder="Padre / Tutor" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={p.name} onChange={e => handlePayerChange(index, 'name', e.target.value)} />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="block text-[9px] font-bold text-gray-400 uppercase">CUIL Pagador {index + 1}</label>
+                            <input type="text" placeholder="20-XXXXXXXX-X" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={p.cuil} onChange={e => handlePayerChange(index, 'cuil', e.target.value)} />
+                          </div>
+                          {payers.length > 1 && (
+                            <button type="button" onClick={() => handleRemovePayer(index)} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition">
+                              <Trash2 size={16}/>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button type="button" onClick={handleAddPayer} className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg font-black text-[9px] uppercase hover:bg-indigo-100 transition border border-indigo-200">
+                        <Plus size={14}/> Agregar pagador
+                      </button>
                   </div>
               </div>
 
