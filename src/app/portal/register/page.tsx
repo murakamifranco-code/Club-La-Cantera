@@ -13,24 +13,21 @@ export default function Register() {
       email: '', password: '', name: '', cuil: '', phone: '',
       birth_date: '', address: '', gender: '',
       emergency_contact_name: '', emergency_contact: '', medical_notes: '',
-      payer_name: '', payer_cuil: '' // Nuevos campos
+      payer_name: '', payer_cuil: '' 
   })
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false) // Nuevo estado para el ojito
+  const [showPassword, setShowPassword] = useState(false) 
   
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [showTermsModal, setShowTermsModal] = useState(false)
 
-  // Estado para controlar si paga el socio o un tercero
   const [isThirdPartyPayer, setIsThirdPartyPayer] = useState(false)
 
-  // Función para formatear CUIL automáticamente
   const formatCuil = (value: string) => {
-    let val = value.replace(/\D/g, ""); // Solo números
+    let val = value.replace(/\D/g, ""); 
     if (val.length > 11) val = val.slice(0, 11);
-
     let formatted = val;
     if (val.length > 2) formatted = `${val.slice(0, 2)}-${val.slice(2)}`;
     if (val.length > 10) formatted = `${formatted.slice(0, 11)}-${val.slice(10, 11)}`;
@@ -98,16 +95,16 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-orange-500 p-4 font-sans py-12">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-orange-500 p-4 font-sans py-12 text-left">
       
-      <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-2xl animate-in zoom-in-95 duration-300">
+      <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-2xl animate-in zoom-in-95 duration-300 text-left">
         
         <div className="text-center mb-10">
             <div className="h-20 w-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-orange-500 shadow-sm overflow-hidden">
                 <img src="/logo.png" alt="Club" className="h-16 w-16 object-contain" onError={(e) => e.currentTarget.style.display = 'none'}/>
             </div>
-            <h1 className="text-3xl font-black text-gray-900 uppercase italic tracking-tight">Alta de Socio</h1>
-            <p className="text-gray-500 mt-2 text-lg">Completá tu ficha para unirte al club.</p>
+            <h1 className="text-3xl font-black text-gray-900 uppercase italic tracking-tight text-center">Alta de Socio</h1>
+            <p className="text-gray-500 mt-2 text-lg text-center">Completá tu ficha para unirte al club.</p>
         </div>
 
         {error && (
@@ -117,19 +114,19 @@ export default function Register() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-8 text-left">
           
           <div className="space-y-4">
               <h3 className="flex items-center gap-2 font-black text-gray-900 uppercase text-sm border-b pb-2 mb-4">
                   <ShieldCheck size={18} className="text-indigo-600"/> Datos de Cuenta
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email <span className="text-red-500">*</span></label>
                     <input type="email" required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" placeholder="tu@email.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contraseña</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contraseña <span className="text-red-500">*</span></label>
                     <div className="relative">
                         <input 
                             type={showPassword ? "text" : "password"} 
@@ -156,12 +153,12 @@ export default function Register() {
                   <User size={18} className="text-indigo-600"/> Información Personal
               </h3>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre Completo</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre Completo <span className="text-red-500">*</span></label>
                 <input type="text" required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" placeholder="Ej: Lionel Messi" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CUIL</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CUIL <span className="text-red-500">*</span></label>
                     <input 
                       type="text" 
                       required 
@@ -172,17 +169,17 @@ export default function Register() {
                     />
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><Calendar size={14}/> Fecha de Nacimiento</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><Calendar size={14}/> Fecha de Nacimiento <span className="text-red-500">*</span></label>
                     <input type="date" required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" value={formData.birth_date} onChange={(e) => setFormData({...formData, birth_date: e.target.value})} />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><Phone size={14}/> Teléfono / Celular</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><Phone size={14}/> Teléfono / Celular <span className="text-red-500">*</span></label>
                     <input type="text" required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" placeholder="Ej: 223 555..." value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
                 </div>
                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><User size={14}/> Género</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><User size={14}/> Género <span className="text-red-500">*</span></label>
                     <select required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900 bg-white" value={formData.gender} onChange={(e) => setFormData({...formData, gender: e.target.value})}>
                         <option value="">Seleccionar...</option>
                         <option value="M">Masculino</option>
@@ -192,13 +189,13 @@ export default function Register() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><MapPin size={14}/> Dirección / Domicilio</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><MapPin size={14}/> Dirección / Domicilio <span className="text-red-500">*</span></label>
                 <input type="text" required className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none font-bold text-gray-900" placeholder="Ej: Av. Luro 1234" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} />
               </div>
           </div>
 
           <div className="space-y-4">
-              <h3 className="flex items-center gap-2 font-black text-gray-900 uppercase text-sm border-b pb-2 mb-4 mt-8">
+              <h3 className="flex items-center gap-2 font-black text-gray-900 uppercase text-sm border-b pb-2 mb-4 mt-8 text-left">
                   <CreditCard size={18} className="text-indigo-600"/> Responsable de Pagos
               </h3>
               <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4">
@@ -225,9 +222,9 @@ export default function Register() {
               </div>
 
               {isThirdPartyPayer && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300 text-left">
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Pagador</label>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del Pagador <span className="text-red-500">*</span></label>
                         <input 
                           type="text" 
                           required={isThirdPartyPayer} 
@@ -238,7 +235,7 @@ export default function Register() {
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CUIL del Pagador</label>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CUIL del Pagador <span className="text-red-500">*</span></label>
                         <input 
                           type="text" 
                           required={isThirdPartyPayer} 
@@ -252,17 +249,17 @@ export default function Register() {
               )}
           </div>
 
-          <div className="space-y-4 bg-red-50 p-4 rounded-xl border border-red-100">
+          <div className="space-y-4 bg-red-50 p-4 rounded-xl border border-red-100 text-left">
               <h3 className="flex items-center gap-2 font-black text-red-700 uppercase text-sm border-b border-red-200 pb-2 mb-4">
                   <ShieldAlert size={18} className="text-red-600"/> Emergencia y Salud
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                   <div>
-                      <label className="block text-xs font-bold text-red-700 uppercase mb-1">Contacto de Emergencia (Nombre)</label>
+                      <label className="block text-xs font-bold text-red-700 uppercase mb-1">Contacto de Emergencia (Nombre) <span className="text-red-500">*</span></label>
                       <input type="text" required className="w-full p-3 border-2 border-red-200 rounded-xl focus:border-red-500 outline-none font-bold text-gray-900 bg-white" placeholder="Ej: Padre/Madre/Tutor" value={formData.emergency_contact_name} onChange={(e) => setFormData({...formData, emergency_contact_name: e.target.value})} />
                   </div>
                   <div>
-                      <label className="block text-xs font-bold text-red-700 uppercase mb-1">Teléfono de Emergencia</label>
+                      <label className="block text-xs font-bold text-red-700 uppercase mb-1">Teléfono de Emergencia <span className="text-red-500">*</span></label>
                       <input type="text" required className="w-full p-3 border-2 border-red-200 rounded-xl focus:border-red-500 outline-none font-bold text-gray-900 bg-white" placeholder="Ej: 223 155..." value={formData.emergency_contact} onChange={(e) => setFormData({...formData, emergency_contact: e.target.value})} />
                   </div>
               </div>
@@ -272,11 +269,11 @@ export default function Register() {
               </div>
           </div>
 
-          <div className="flex items-start gap-3 bg-gray-100 p-4 rounded-xl border border-gray-200">
+          <div className="flex items-start gap-3 bg-gray-100 p-4 rounded-xl border border-gray-200 text-left">
               <input id="terms" type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} className="w-6 h-6 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer mt-1" />
               <div className="text-sm">
                 <label htmlFor="terms" className="font-bold text-gray-800 cursor-pointer">
-                  Declaro que los datos son reales y acepto la <span className="text-indigo-600 underline" onClick={(e) => {e.preventDefault(); setShowTermsModal(true)}}>Política de Privacidad y Tratamiento de Datos Personales y de Salud.</span>
+                  Declaro que los datos son reales y acepto la <span className="text-indigo-600 underline" onClick={(e) => {e.preventDefault(); setShowTermsModal(true)}}>Política de Privacidad y Tratamiento de Datos Personales y de Salud.</span> <span className="text-red-500">*</span>
                 </label>
               </div>
           </div>
@@ -288,19 +285,19 @@ export default function Register() {
 
         <div className="mt-8 text-center">
           <Link href="/portal" className="text-base font-bold text-gray-500 hover:text-indigo-600 transition">
-            ¿Ya tenés cuenta? <span className="underline">Iniciá Sesión</span>
+            ¿Ya tenés cuenta? <span className="underline text-center">Iniciá Sesión</span>
           </Link>
         </div>
       </div>
 
       {showTermsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-                <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] text-left">
+                <div className="p-4 border-b bg-gray-50 flex justify-between items-center text-left">
                     <h3 className="font-black text-gray-900 flex items-center gap-2"><FileText size={20} className="text-indigo-600"/> TÉRMINOS Y CONDICIONES</h3>
                     <button onClick={() => setShowTermsModal(false)} className="p-1 hover:bg-gray-200 rounded-full text-gray-500"><X size={20}/></button>
                 </div>
-                <div className="p-6 overflow-y-auto text-sm text-gray-600 space-y-4 leading-relaxed">
+                <div className="p-6 overflow-y-auto text-sm text-gray-600 space-y-4 leading-relaxed text-left">
                     <p className="font-bold text-gray-900">1. RESPONSABLE DE LOS DATOS</p>
                     <p>Los datos personales recabados serán incorporados a una base de datos bajo la responsabilidad del <strong>Club La Cantera</strong>.</p>
                     <p className="font-bold text-gray-900">2. FINALIDAD Y DATOS SENSIBLES</p>
