@@ -1,13 +1,14 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
-import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle, Filter, Download } from 'lucide-react'
+import { Search, UserPlus, Edit2, Loader2, DollarSign, X, ArrowDownCircle, ArrowUpCircle, UserCheck, Info, FileText, ShieldCheck, User, Shield, CheckCircle, Filter, Download, CreditCard } from 'lucide-react'
 import { parseISO, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 // Interfaces
 interface Player {
   id: string; name: string; email: string; status: string; role: string; cuil?: string; phone?: string; address?: string; birth_date?: string; gender?: string; medical_notes?: string; emergency_contact?: string; emergency_contact_name?: string; account_balance: number;
+  payer_name?: string; payer_cuil?: string;
 }
 interface Transaction { 
   id: string; 
@@ -42,7 +43,8 @@ export default function PlayersPage() {
   const [formData, setFormData] = useState({ 
     name: '', email: '', cuil: '', phone: '', address: '', 
     birth_date: '', gender: '', medical_notes: '', 
-    emergency_contact: '', emergency_contact_name: '' 
+    emergency_contact: '', emergency_contact_name: '',
+    payer_name: '', payer_cuil: '' 
   })
 
   const fetchPlayers = async () => {
@@ -138,7 +140,6 @@ export default function PlayersPage() {
 
   const openModal = (player?: Player) => {
     if (player) { 
-      // Normalización inteligente para que el modal no aparezca vacío al editar datos viejos
       const dbGender = (player.gender || "").toLowerCase();
       let selectedGender = "";
       if (dbGender === 'male' || dbGender === 'm' || dbGender === 'masculino') selectedGender = "male";
@@ -150,11 +151,12 @@ export default function PlayersPage() {
         name: player.name || '', email: player.email || '', cuil: player.cuil || '', 
         phone: player.phone || '', address: player.address || '', birth_date: player.birth_date || '', 
         gender: selectedGender, medical_notes: player.medical_notes || '', 
-        emergency_contact: player.emergency_contact || '', emergency_contact_name: player.emergency_contact_name || '' 
+        emergency_contact: player.emergency_contact || '', emergency_contact_name: player.emergency_contact_name || '',
+        payer_name: player.payer_name || '', payer_cuil: player.payer_cuil || ''
       })
     } else { 
       setEditingPlayer(null)
-      setFormData({ name: '', email: '', cuil: '', phone: '', address: '', birth_date: '', gender: '', medical_notes: '', emergency_contact: '', emergency_contact_name: '' }) 
+      setFormData({ name: '', email: '', cuil: '', phone: '', address: '', birth_date: '', gender: '', medical_notes: '', emergency_contact: '', emergency_contact_name: '', payer_name: '', payer_cuil: '' }) 
     }
     setIsModalOpen(true)
   }
@@ -214,7 +216,6 @@ export default function PlayersPage() {
   const exportToExcel = () => {
     const headers = ['Nombre', 'CUIL', 'Email', 'Categoria', 'Sexo', 'Estado', 'Saldo'];
     const rows = filteredPlayers.map(p => {
-      // Normalización inteligente del sexo para el Excel
       const dbGender = (p.gender || "").toLowerCase();
       let excelGender = "Otro";
       if (dbGender === 'male' || dbGender === 'm' || dbGender === 'masculino') excelGender = "Masculino";
@@ -247,7 +248,6 @@ export default function PlayersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div><h1 className="text-3xl font-bold tracking-tight text-gray-900">Socios</h1><p className="mt-2 text-gray-500">Gestión de socios del club.</p></div>
         <div className="flex gap-2">
-          {/* BOTON EXPORTAR EXCEL VERDE */}
           <button 
             onClick={exportToExcel} 
             className="inline-flex items-center justify-center rounded-md bg-green-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-green-700 transition"
@@ -453,7 +453,7 @@ export default function PlayersPage() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overflow-y-auto text-left">
           <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl overflow-hidden border border-gray-100">
             <div className="p-4 border-b flex justify-between items-center bg-gray-50">
               <h2 className="text-lg font-black text-gray-900 uppercase italic tracking-tight">{editingPlayer ? 'Editar Socio' : 'Nuevo Socio'}</h2>
@@ -511,6 +511,23 @@ export default function PlayersPage() {
                     </div>
                   </div>
               </div>
+
+              <div>
+                  <div className="mb-2 border-b border-gray-200 pb-1 flex items-center gap-2">
+                    <h3 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-2"><CreditCard size={14}/> Responsable de Pagos</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">Nombre del Pagador</label>
+                      <input type="text" placeholder="Padre / Tutor" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.payer_name} onChange={e => setFormData({...formData, payer_name: e.target.value})} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-gray-700 uppercase ml-1">CUIL del Pagador</label>
+                      <input type="text" placeholder="20-XXXXXXXX-X" className="w-full p-2 border border-gray-300 rounded-lg font-bold text-xs text-gray-900 outline-none focus:ring-1 focus:ring-indigo-500 transition bg-white" value={formData.payer_cuil} onChange={e => setFormData({...formData, payer_cuil: e.target.value})} />
+                    </div>
+                  </div>
+              </div>
+
               <div className="p-4 bg-red-50 rounded-xl border border-red-100">
                 <div className="mb-2 border-b border-red-200 pb-1 flex items-center gap-2">
                   <h3 className="text-[10px] font-black text-red-700 uppercase tracking-widest flex items-center gap-2"><Shield size={14}/> Salud</h3>
